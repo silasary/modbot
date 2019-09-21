@@ -20,6 +20,17 @@ class Roles(commands.Cog):
         await ctx.author.add_roles(role)
         await ctx.send('Done!')
 
+    @setcolour.error
+    async def colour_error(self, ctx, error):
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send('You need to give me a color')
+            return
+
+        if isinstance(error, commands.UserInputError):
+            await ctx.send("That's not a colour I recognise")
+            return
+        await ctx.send("An unknown error occured")
+
     async def remove_colour(self, member: discord.Member) -> None:
         for role in member.roles:
             if role.name.startswith('Colour: '):
