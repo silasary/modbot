@@ -20,7 +20,7 @@ async def get_webhook(channel: TextChannel) -> Webhook:
 
 async def impersonate(user: User, channel: TextChannel, content: str) -> None:
     hook = await get_webhook(channel)
-    await hook.send(content, username=user.name, avatar_url=str(user.avatar_url))
+    await hook.send(content, username=user.display_name, avatar_url=str(user.avatar_url))
 
 def setup(bot: commands.Bot) -> None:
     bot.add_cog(Owo(bot))
