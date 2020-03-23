@@ -26,7 +26,7 @@ class Bot(discord.ext.commands.Bot):
     def __init__(self) -> None:
         self.config = Config()
         super().__init__(command_prefix='~')
-        super().load_extension('roles')
+        super().load_extension('roles.colour')
         super().load_extension('discordbot.owner')
         super().load_extension('notices_channel')
 

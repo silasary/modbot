@@ -11,33 +11,12 @@ from discord.ext import commands
 
 
 class Owner(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._last_result = None
 
     async def cog_check(self, ctx):
         return ctx.author.id in self.bot.config.owners
-
-    @commands.command(hidden=True)
-    async def addowner(self, ctx, user: discord.Member):
-        if user.id in self.bot.config.owners:
-            return await ctx.send("Sudo mode alreay enabled for that guy")
-        self.bot.config.owners.append(user.id)
-        await ctx.send(f"Glj! You can now abuse this botto, {user.mention}!")
-
-    @commands.command(
-        hidden=True, aliases=["remowner", "rmowner", "delowner", "deleteowner"]
-    )
-    async def removeowner(self, ctx, user: discord.Member):
-        if user.id == self.bot.owner_id:
-            return await ctx.send("Don't you dare deleting my creator!")
-        try:
-            self.bot.config.owners.remove(user.id)
-        except ValueError:
-            return await ctx.send("Failed, that guy is not an owner")
-        await ctx.send(f"Oooof... You can no longer abuse this botto, {user.mention}!")
-
-        # Hidden means it won't show up on the default help.
 
     @commands.command(name="load", hidden=True)
     async def load_cog(self, ctx, *, cog: str):
@@ -63,7 +42,7 @@ class Owner(commands.Cog):
         else:
             await ctx.send("**`SUCCESS`**")
 
-    @commands.command(name="reload", hidden=True)
+    @commands.command(name="reloadc", hidden=True)
     async def reload_cog(self, ctx, *, cog: str):
         """Command which Reloads a Module.
         Remember to use dot path. e.g: cogs.owner"""
@@ -76,14 +55,17 @@ class Owner(commands.Cog):
         else:
             await ctx.send("**`SUCCESS`**")
 
-    @commands.command(hidden=True)
-    async def reloadconf(self, ctx):
-        try:
-            importlib_reload(self.bot.config)
-        except Exception as e:
-            await ctx.send(f"**`ERROR:`** {type(e).__name__} - {e}")
-        else:
-            await ctx.send("**`SUCCESS`**")
+    @commands.command(name='reload', hidden=True)
+    async def reload_all(self, ctx: commands.Context) -> None:
+        extensions = list(self.bot.extensions.keys())
+        for cog in extensions:
+            try:
+                self.bot.unload_extension(cog)
+                self.bot.load_extension(cog)
+            except Exception as e:
+                await ctx.send(f"**`ERROR:`** {type(e).__name__} - {e}")
+            else:
+                await ctx.send(f"**`RELOADED {cog}`**")
 
     @commands.command(hidden=True)
     async def shutdown(self, ctx):
