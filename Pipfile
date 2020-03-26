@@ -8,14 +8,11 @@ python_version = "3.6"
 
 [packages]
 "discord.py" = "*"
-pylint = "*"
-mypy = "*"
 aioredis = "*"
-peewee = "*"
-peewee-db-evolve = "*"
-peewee-async = "*"
-mysqlclient = "*"
 requests = "*"
 
 [dev-packages]
 autopep8 = "*"
+pylint = "*"
+mypy = "*"
+rope = "*"

@@ -29,6 +29,7 @@ class Bot(discord.ext.commands.Bot):
         super().load_extension('roles.colour')
         super().load_extension('discordbot.owner')
         super().load_extension('notices_channel')
+        super().load_extension('spoilerchan.spoilers')
 
 
     def init(self) -> None:
