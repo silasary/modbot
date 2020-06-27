@@ -24,6 +24,8 @@ class CommandErrorHandler(commands.Cog):
         if isinstance(error, commands.CommandNotFound):
             return # Probably for another bot. We don't care
 
+        sentry_sdk.capture_exception(error)
+
         if isinstance(error, commands.CommandError):
             return await ctx.send(f"Error executing command `{ctx.command.name}`: {str(error)}")
 
@@ -35,7 +37,7 @@ class CommandErrorHandler(commands.Cog):
                 type(error), error, error.__traceback__)))
 
 def setup(bot: commands.Bot) -> None:
-    if configuration.get('SENTRY_TOKEN') is not None:
+    if configuration.get('SENTRY_TOKEN') is not None and (sentry_sdk.Hub.current is None or sentry_sdk.Hub.current.client is None):
         sentry_sdk.init(configuration.get('SENTRY_TOKEN'))
         with sentry_sdk.configure_scope() as scope:
             scope.user = {'username': str(bot.user)}

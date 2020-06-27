@@ -27,9 +27,12 @@ class Bot(discord.ext.commands.Bot):
         self.config = Config()
         super().__init__(command_prefix='~')
         super().load_extension('roles.colour')
-        super().load_extension('discordbot.owner')
         super().load_extension('discordbot.updater')
+        super().load_extension('discordbot.botguild')
+        super().load_extension('discordbot.owner')
+        super().load_extension('discordbot.errors')
         super().load_extension('notices_channel')
+        super().load_extension('honk')
         super().load_extension('spoilerchan.spoilers')
 
 
