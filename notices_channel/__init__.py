@@ -29,7 +29,7 @@ def translate_furry(input: str) -> str:
 
 
 async def get_webhook(channel: GuildText) -> Webhook:
-    for wh in await channel.webhooks():
+    for wh in await channel.fetch_webhooks():
         return wh
     return await channel.create_webhook(name="Proxy")
 
