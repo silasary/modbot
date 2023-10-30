@@ -4,11 +4,11 @@ verify_ssl = true
 name = "pypi"
 
 [requires]
-python_version = "3.8"
+python_version = "3.11"
 
 [packages]
-"discord.py" = "*"
-aioredis = "*"
+"interactions.py" = "*"
+redis = "*"
 requests = "*"
 sentry-sdk = "*"
 

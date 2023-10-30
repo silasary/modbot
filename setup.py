@@ -17,6 +17,6 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
-    install_requires=['discord.py', 'sentry-sdk']
+    python_requires=">=3.6",
+    install_requires=["interactions.py", "sentry-sdk"],
 )
