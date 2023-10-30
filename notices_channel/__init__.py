@@ -1,6 +1,13 @@
 from interactions import Client, GuildText, Member, User, Webhook
 from interactions import Extension, listen
 from interactions.api.events import MessageCreate
+from shared import configuration
+
+configuration.DEFAULTS.update(
+    {
+        "owo_channel": 648850150046826497,
+    }
+)
 
 
 class Owo(Extension):
@@ -9,7 +16,7 @@ class Owo(Extension):
         message = e.message
         if message.author.bot:
             return
-        if message.channel.id == 648850150046826497:
+        if message.channel.id == configuration.get("owo_channel"):
             await impersonate(
                 message.author, message.channel, translate_furry(message.content)
             )
