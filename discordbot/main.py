@@ -1,5 +1,7 @@
 from redis import asyncio as aioredis
 import interactions
+from interactions.ext import prefixed_commands as prefixed
+from interactions.ext import hybrid_commands as hybrid
 
 from shared import configuration
 
@@ -22,6 +24,8 @@ class Bot(interactions.Client):
         # super().load_extension('spoilerchan.spoilers')
 
     def init(self) -> None:
+        prefixed.setup(self)
+        hybrid.setup(self)
         self.start(configuration.get("token"))
 
     async def on_ready(self) -> None:
