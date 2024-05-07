@@ -47,8 +47,16 @@ class Roles(Extension):
         if isinstance(colour, str):
             colour = Color(colour)
         name = f"Colour: {str(colour)}"
+        highest_colour = 99999
         for role in guild.roles:
             if role.name == name:
                 return role
+            elif role.name.startswith("Colour: "):
+                order = role.position
+                if order < highest_colour:
+                    highest_colour = order
         else:
-            return await guild.create_role(name=name, colour=colour)
+            role = await guild.create_role(name=name, colour=colour)
+            if highest_colour != 99999:
+                await role.move(position=highest_colour)
+            return role
