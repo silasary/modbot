@@ -11,6 +11,8 @@ python_version = "3"
 redis = "*"
 requests = "*"
 sentry-sdk = "*"
+beautifulsoup4 = "*"
+cattrs = "*"
 
 [dev-packages]
 autopep8 = "*"

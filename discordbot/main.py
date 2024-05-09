@@ -11,16 +11,21 @@ class Bot(interactions.Client):
         super().__init__(
             intents=interactions.Intents.DEFAULT | interactions.Intents.MESSAGE_CONTENT,
             enable_emoji_cache=True,
+            sync_interactions=True,
+            sync_ext=True,
         )
         super().load_extension(
             "interactions.ext.sentry",
-            token="https://83766626d7a64c1084fd140390175ea5@sentry.io/1757452",
+            token="https://7aadf0c15f880e90e01c4dba496f152d@o233010.ingest.us.sentry.io/4507219660832768",
         )
         super().load_extension("roles.colour")
+        super().load_extension("ap_alert")
         # super().load_extension('discordbot.updater')
         # super().load_extension('discordbot.botguild')
         super().load_extension("notices_channel")
         super().load_extension("honk")
+        super().load_extension("interactions.ext.jurigged")
+
         # super().load_extension('spoilerchan.spoilers')
 
     def init(self) -> None:
