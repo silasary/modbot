@@ -7,12 +7,12 @@ name = "pypi"
 python_version = "3"
 
 [packages]
-"interactions.py" = "*"
 redis = "*"
 requests = "*"
 sentry-sdk = "*"
 beautifulsoup4 = "*"
 cattrs = "*"
+"interactions.py" = {extras = ["all"], version = "*"}
 
 [dev-packages]
 autopep8 = "*"
