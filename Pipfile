@@ -12,10 +12,12 @@ requests = "*"
 sentry-sdk = "*"
 beautifulsoup4 = "*"
 cattrs = "*"
-"interactions.py" = {extras = ["all"], version = "*"}
+"interactions.py" = {extras = ["speedup"], version = "*"}
+"jurigged" = "*"
 
 [dev-packages]
 autopep8 = "*"
 pylint = "*"
 mypy = "*"
 rope = "*"
+
