@@ -49,6 +49,9 @@ class TrackedGame:
     last_check: datetime.datetime = None
     last_update: datetime.datetime = None
 
+    def __hash__(self) -> int:
+        return hash(self.url)
+
     @property
     def tracker_id(self) -> str:
         """ID of the multiworld tracker."""
