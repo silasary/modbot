@@ -170,7 +170,7 @@ class APTracker(Extension):
         await multiworld.refresh()
         self.cheese[room] = multiworld
         for game in multiworld.games.values():
-            if game["effective_discord_username"] == player.username:
+            if game.get("effective_discord_username") == player.username:
                 game[
                     "url"
                 ] = f'https://archipelago.gg/tracker/{room}/0/{game["position"]}'
