@@ -1,5 +1,4 @@
 import asyncio
-import aiohttp
 import datetime
 import json
 import os
@@ -19,11 +18,16 @@ from interactions import (
 from interactions.models.internal.tasks import Task, IntervalTrigger
 import requests
 
-session = aiohttp.ClientSession()
+converter = cattrs.Converter()
+converter.register_structure_hook(
+    datetime.datetime, lambda x, _: datetime.datetime.fromisoformat(x) if x else None
+)
+converter.register_unstructure_hook(datetime.datetime, lambda x, _: x.isoformat())
+
 
 @attrs.define()
 class TrackedGame:
-    url: str  # /tracker/tracker_id/0/slot_id
+    url: str  # https://archipelago.gg/tracker/tracker_id/0/slot_id
     latest_item: int
     name: str = None
     game: str = None
@@ -32,11 +36,12 @@ class TrackedGame:
 
     @property
     def tracker_id(self) -> str:
-        return self.url.split("/")[2]
+        """ID of the multiworld tracker."""
+        return self.url.split("/")[-3]
 
     @property
     def slot_id(self) -> str:
-        return self.url.split("/")[4]
+        return self.url.split("/")[-1]
 
     def refresh(self) -> None:
         html = requests.get(self.url).content
@@ -56,6 +61,7 @@ class TrackedGame:
         self.latest_item = rows[-1][last_index]
         return new_items
 
+
 @attrs.define()
 class Multiworld:
     url: str  # https://aptracker.chrishowie.com/api/tracker/room_id
@@ -64,10 +70,18 @@ class Multiworld:
     last_check: datetime.datetime = None
 
     async def refresh(self) -> None:
-        async with session.get(self.url) as response:
-            data = await response.json()
-            self.title = data.get("title")
-            self.games = {g['position']: g for g in data.get("games")}
+        if (
+            self.last_check
+            and datetime.datetime.now() - self.last_check < datetime.timedelta(days=1)
+        ):
+            return
+        self.last_check = datetime.datetime.now()
+
+        data = requests.get(self.url).text
+        data = json.loads(data)
+        self.title = data.get("title")
+        self.games = {g["position"]: g for g in data.get("games")}
+
 
 class APTracker(Extension):
     def __init__(self, bot: Client) -> None:
@@ -76,14 +90,17 @@ class APTracker(Extension):
         self.cheese: dict[str, Multiworld] = {}
         if os.path.exists("trackers.json"):
             with open("trackers.json") as f:
-                self.trackers = cattrs.structure(
+                self.trackers = converter.structure(
                     json.loads(f.read()), dict[int, list[TrackedGame]]
                 )
-        if os.path.exists("cheese.json"):
-            with open("cheese.json") as f:
-                self.cheese = cattrs.structure(
-                    json.loads(f.read()), dict[str, Multiworld]
-                )
+        try:
+            if os.path.exists("cheese.json"):
+                with open("cheese.json") as f:
+                    self.cheese = converter.structure(
+                        json.loads(f.read()), dict[str, Multiworld]
+                    )
+        except Exception as e:
+            print(e)
 
     @listen()
     async def on_startup(self) -> None:
@@ -129,46 +146,73 @@ class APTracker(Extension):
         for tracker in self.trackers[ctx.author_id]:
             new_items = tracker.refresh()
             if new_items:
-                games[tracker.url] = new_items
+                games[tracker.name or tracker.url] = new_items
 
         if not games:
             await ctx.send("No new items", ephemeral=True)
             return
 
-        for url, items in games.items():
+        for name, items in games.items():
             names = [i[0] for i in items]
-            await ctx.send(f"{url}: {', '.join(names)}", ephemeral=False)
+            if len(names) > 10:
+                await ctx.send(f"{name}:\n{', '.join(names)}", ephemeral=False)
+            else:
+                await ctx.send(f"{name}: {', '.join(names)}", ephemeral=False)
 
     @ap.subcommand("cheese")
     @slash_option("room", "room-id", OptionType.STRING, required=True)
     async def ap_cheese(self, ctx: SlashContext, room: str) -> None:
+        await self.sync_cheese(ctx.author, room)
+        await self.ap_refresh(ctx)
+
+    async def sync_cheese(self, player: User, room: str) -> Multiworld:
         multiworld = Multiworld(f"https://aptracker.chrishowie.com/api/tracker/{room}")
         await multiworld.refresh()
         self.cheese[room] = multiworld
         for game in multiworld.games.values():
-            if game['effective_discord_username'] == ctx.author.username:
-                game['url'] = f'https://archipelago.gg/tracker/{room}/0/{game["position"]}'
-                for t in self.trackers[ctx.author_id]:
-                    if t.url == game['url']:
+            if game["effective_discord_username"] == player.username:
+                game[
+                    "url"
+                ] = f'https://archipelago.gg/tracker/{room}/0/{game["position"]}'
+
+                if game["completion_status"] == "done":
+                    self.remove_tracker(player, game["url"])
+                    continue
+
+                for t in self.trackers[player.id]:
+                    if t.url == game["url"]:
                         tracker = t
                         break
                 else:
-                    tracker = TrackedGame(game['url'], 0)
-                    self.trackers[ctx.author_id].append(tracker)
+                    tracker = TrackedGame(game["url"], 0)
+                    self.trackers[player.id].append(tracker)
                     self.save()
-                tracker.name = multiworld.title + f" - {game['name']}"
-                tracker.game = game['game']
+                if multiworld.title:
+                    tracker.name = f"***{multiworld.title}*** - **{game['name']}**"
+                else:
+                    tracker.name = f"{room} - **{game['name']}**"
+                tracker.game = game["game"]
+        return Multiworld
+
+    def remove_tracker(self, player, url):
+        for t in self.trackers[player.id]:
+            if t.url == url:
+                self.trackers[player.id].remove(t)
+                return
 
     @Task.create(IntervalTrigger(hours=1))
     async def refresh_all(self) -> None:
         for user, trackers in self.trackers.items():
+            player = await self.bot.fetch_user(user)
+            if not player:
+                continue
             for tracker in trackers:
+                await self.sync_cheese(player, tracker.tracker_id)
                 new_items = tracker.refresh()
                 if new_items:
                     names = [i[0] for i in new_items]
-                    player = await self.bot.fetch_user(user)
                     if isinstance(player, User):
-                        await player.send(f"{tracker.url}: {', '.join(names)}")
+                        await player.send(f"{tracker.name}: {', '.join(names)}")
                     else:
                         print(f"{tracker.url}: {', '.join(names)}")
                 await asyncio.sleep(120)
@@ -177,9 +221,10 @@ class APTracker(Extension):
 
     def save(self):
         with open("trackers.json", "w") as f:
-            f.write(json.dumps(cattrs.unstructure(self.trackers)))
+            f.write(json.dumps(converter.unstructure(self.trackers)))
         with open("cheese.json", "w") as f:
-            f.write(json.dumps(cattrs.unstructure(self.cheese)))
+            flat = converter.unstructure(self.cheese)
+            f.write(json.dumps(flat))
 
 
 def try_int(text: str) -> str | int:
