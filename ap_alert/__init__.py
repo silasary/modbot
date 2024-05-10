@@ -205,12 +205,18 @@ class APTracker(Extension):
         tracker: TrackedGame,
         new_items: list[str],
     ):
-        new_items = [
-            i
-            for i in new_items
-            if self.get_classification(tracker.game, i[0]) != ItemClassification.filler
-        ]
-        names = [i[0] for i in new_items]
+        def icon(item):
+            if item in self.datapackages[tracker.game].items:
+                classification = self.datapackages[tracker.game].items[item]
+                if classification == ItemClassification.filler:
+                    return "🔘"
+                if classification == ItemClassification.useful:
+                    return "🔵"
+                if classification == ItemClassification.progression:
+                    return "✨"
+            return "❓"
+
+        names = [f"{icon(i[0])} {i[0]}" for i in new_items]
         slot_name = tracker.name or tracker.url
 
         if len(names) == 1:
