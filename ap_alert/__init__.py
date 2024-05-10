@@ -161,6 +161,43 @@ class APTracker(Extension):
         for tracker, items in games.items():
             await self.send_new_items(ctx, tracker, items)
 
+        for tracker, items in games.items():
+            await self.try_classify(ctx, tracker, items)
+
+    async def try_classify(self, ctx, tracker, new_items):
+        unclassified = [
+            i[0]
+            for i in new_items
+            if self.get_classification(tracker.game, i[0]) == ItemClassification.unknown
+        ]
+        if unclassified:
+            filler = Button(style=ButtonStyle.GREY, label="Filler")
+            useful = Button(style=ButtonStyle.GREEN, label="Useful")
+            progression = Button(style=ButtonStyle.BLUE, label="Progression")
+            msg = await ctx.send(
+                f"What kind of item is {unclassified[0]}?",
+                ephemeral=False,
+                components=[[filler, useful, progression]],
+            )
+            try:
+                chosen = await self.bot.wait_for_component(msg, timeout=600)
+                if chosen.ctx.custom_id == filler.custom_id:
+                    classification = ItemClassification.filler
+                elif chosen.ctx.custom_id == useful.custom_id:
+                    classification = ItemClassification.useful
+                elif chosen.ctx.custom_id == progression.custom_id:
+                    classification = ItemClassification.progression
+                else:
+                    print(f"wat: {chosen.ctx.custom_id}")
+                self.datapackages[tracker.game].items[unclassified[0]] = classification
+                await chosen.ctx.send(
+                    f"✅{unclassified[0]} is {classification}", ephemeral=True
+                )
+            except TimeoutError:
+                pass
+            await msg.channel.delete_message(msg)
+            self.save()
+
     async def send_new_items(
         self,
         ctx_or_user: SlashContext | User,
@@ -181,37 +218,6 @@ class APTracker(Extension):
             await ctx_or_user.send(f"{slot_name}:\n{', '.join(names)}", ephemeral=False)
         else:
             await ctx_or_user.send(f"{slot_name}: {', '.join(names)}", ephemeral=False)
-
-        unclassified = [
-            i[0]
-            for i in new_items
-            if self.get_classification(tracker.game, i[0]) == ItemClassification.unknown
-        ]
-        if unclassified:
-            filler = Button(style=ButtonStyle.GREY, label="Filler")
-            useful = Button(style=ButtonStyle.GREEN, label="Useful")
-            progression = Button(style=ButtonStyle.BLUE, label="Progression")
-            msg = await ctx_or_user.send(
-                f"What kind of item is {unclassified[0]}?",
-                ephemeral=False,
-                components=[[filler, useful, progression]],
-            )
-            try:
-                chosen = await self.bot.wait_for_component(msg, timeout=600)
-                if chosen.ctx.custom_id == filler.custom_id:
-                    classification = ItemClassification.filler
-                elif chosen.ctx.custom_id == useful.custom_id:
-                    classification = ItemClassification.useful
-                elif chosen.ctx.custom_id == progression.custom_id:
-                    classification = ItemClassification.progression
-                else:
-                    print(f"wat: {chosen.ctx.custom_id}")
-                self.datapackages[tracker.game].items[unclassified[0]] = classification
-                await chosen.ctx.send("✅", ephemeral=True)
-            except TimeoutError:
-                pass
-            await msg.channel.delete_message(msg)
-            self.save()
 
     @ap.subcommand("cheese")
     @slash_option("room", "room-id", OptionType.STRING, required=True)
@@ -268,6 +274,7 @@ class APTracker(Extension):
                 new_items = tracker.refresh()
                 if new_items:
                     await self.send_new_items(player, tracker, new_items)
+                    asyncio.create_task(self.try_classify(player, tracker, new_items))
                 await asyncio.sleep(120)
 
         self.save()
