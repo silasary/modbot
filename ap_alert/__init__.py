@@ -164,18 +164,20 @@ class APTracker(Extension):
         for tracker, items in games.items():
             await self.try_classify(ctx, tracker, items)
 
-    async def try_classify(self, ctx, tracker, new_items):
+    async def try_classify(
+        self, ctx: SlashContext | User, tracker: TrackedGame, new_items: list[str]
+    ) -> None:
         unclassified = [
             i[0]
             for i in new_items
             if self.get_classification(tracker.game, i[0]) == ItemClassification.unknown
         ]
-        if unclassified:
+        for item in unclassified:
             filler = Button(style=ButtonStyle.GREY, label="Filler")
             useful = Button(style=ButtonStyle.GREEN, label="Useful")
             progression = Button(style=ButtonStyle.BLUE, label="Progression")
             msg = await ctx.send(
-                f"What kind of item is {unclassified[0]}?",
+                f"[{tracker.game}] What kind of item is {item}?",
                 ephemeral=False,
                 components=[[filler, useful, progression]],
             )
@@ -189,12 +191,11 @@ class APTracker(Extension):
                     classification = ItemClassification.progression
                 else:
                     print(f"wat: {chosen.ctx.custom_id}")
-                self.datapackages[tracker.game].items[unclassified[0]] = classification
-                await chosen.ctx.send(
-                    f"✅{unclassified[0]} is {classification}", ephemeral=True
-                )
+                self.datapackages[tracker.game].items[item] = classification
+                await chosen.ctx.send(f"✅{item} is {classification}", ephemeral=True)
             except TimeoutError:
-                pass
+                await msg.channel.delete_message(msg)
+                return
             await msg.channel.delete_message(msg)
             self.save()
 
