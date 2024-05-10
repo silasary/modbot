@@ -245,7 +245,7 @@ class APTracker(Extension):
                     "url"
                 ] = f'https://archipelago.gg/tracker/{room}/0/{game["position"]}'
 
-                if game["completion_status"] == "done":
+                if game["checks_done"] == game["checks_total"]:
                     self.remove_tracker(player, game["url"])
                     continue
 
