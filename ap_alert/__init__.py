@@ -206,7 +206,10 @@ class APTracker(Extension):
         new_items: list[str],
     ):
         def icon(item):
-            if item in self.datapackages[tracker.game].items:
+            if (
+                tracker.game in self.datapackages
+                and item in self.datapackages[tracker.game].items
+            ):
                 classification = self.datapackages[tracker.game].items[item]
                 if classification == ItemClassification.filler:
                     return "🔘"
