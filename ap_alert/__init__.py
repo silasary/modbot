@@ -1,11 +1,13 @@
 import asyncio
 import datetime
+import enum
 import json
 import os
 import attrs
 import cattrs
 from bs4 import BeautifulSoup
 from interactions import (
+    ButtonStyle,
     Client,
     Extension,
     OptionType,
@@ -14,15 +16,28 @@ from interactions import (
     listen,
     slash_option,
     slash_command,
+    Button,
 )
 from interactions.models.internal.tasks import Task, IntervalTrigger
 import requests
 
 converter = cattrs.Converter()
 converter.register_structure_hook(
-    datetime.datetime, lambda x, _: datetime.datetime.fromisoformat(x) if x else None
+    datetime.datetime, lambda x, *_: datetime.datetime.fromisoformat(x) if x else None
 )
-converter.register_unstructure_hook(datetime.datetime, lambda x: x.isoformat())
+converter.register_unstructure_hook(
+    datetime.datetime, lambda x, *_: x.isoformat() if x else None
+)
+
+ItemClassification = enum.Enum(
+    "ItemClassification", "unknown trap filler useful progression"
+)
+
+
+@attrs.define()
+class Datapackage:
+    # game: str
+    items: dict[str, ItemClassification]
 
 
 @attrs.define()
@@ -88,19 +103,8 @@ class APTracker(Extension):
         self.bot: Client = bot
         self.trackers: dict[int, list[TrackedGame]] = {}
         self.cheese: dict[str, Multiworld] = {}
-        if os.path.exists("trackers.json"):
-            with open("trackers.json") as f:
-                self.trackers = converter.structure(
-                    json.loads(f.read()), dict[int, list[TrackedGame]]
-                )
-        try:
-            if os.path.exists("cheese.json"):
-                with open("cheese.json") as f:
-                    self.cheese = converter.structure(
-                        json.loads(f.read()), dict[str, Multiworld]
-                    )
-        except Exception as e:
-            print(e)
+        self.datapackages: dict[str, Datapackage] = {}
+        self.load()
 
     @listen()
     async def on_startup(self) -> None:
@@ -129,8 +133,7 @@ class APTracker(Extension):
             self.save()
 
         new_items = tracker.refresh()
-        names = [i[0] for i in new_items]
-        await ctx.send(", ".join(names) or "No new items", ephemeral=False)
+        await self.send_new_items(ctx, tracker, new_items)
 
     @ap.subcommand("refresh")
     async def ap_refresh(self, ctx: SlashContext) -> None:
@@ -146,18 +149,66 @@ class APTracker(Extension):
         for tracker in self.trackers[ctx.author_id]:
             new_items = tracker.refresh()
             if new_items:
-                games[tracker.name or tracker.url] = new_items
+                games[tracker] = new_items
 
         if not games:
             await ctx.send("No new items", ephemeral=True)
             return
 
-        for name, items in games.items():
-            names = [i[0] for i in items]
-            if len(names) > 10:
-                await ctx.send(f"{name}:\n{', '.join(names)}", ephemeral=False)
-            else:
-                await ctx.send(f"{name}: {', '.join(names)}", ephemeral=False)
+        for tracker, items in games.items():
+            await self.send_new_items(ctx, tracker, items)
+
+    async def send_new_items(
+        self,
+        ctx_or_user: SlashContext | User,
+        tracker: TrackedGame,
+        new_items: list[str],
+    ):
+        new_items = [
+            i
+            for i in new_items
+            if self.get_classification(tracker.game, i[0]) != ItemClassification.filler
+        ]
+        names = [i[0] for i in new_items]
+        slot_name = tracker.name or tracker.url
+
+        if len(names) == 1:
+            await ctx_or_user.send(f"{slot_name}: {names[0]}", ephemeral=False)
+        elif len(names) > 10:
+            await ctx_or_user.send(f"{slot_name}:\n{', '.join(names)}", ephemeral=False)
+        else:
+            await ctx_or_user.send(f"{slot_name}: {', '.join(names)}", ephemeral=False)
+
+        unclassified = [
+            i[0]
+            for i in new_items
+            if self.get_classification(tracker.game, i[0]) == ItemClassification.unknown
+        ]
+        if unclassified:
+            filler = Button(style=ButtonStyle.GREY, label="Filler")
+            useful = Button(style=ButtonStyle.GREEN, label="Useful")
+            progression = Button(style=ButtonStyle.BLUE, label="Progression")
+            msg = await ctx_or_user.send(
+                f"What kind of item is {unclassified[0]}?",
+                ephemeral=False,
+                components=[[filler, useful, progression]],
+            )
+            try:
+                chosen = await self.bot.wait_for_component(msg, timeout=600)
+                if chosen.ctx.custom_id == filler.custom_id:
+                    classification = ItemClassification.filler
+                elif chosen.ctx.custom_id == useful.custom_id:
+                    classification = ItemClassification.useful
+                elif chosen.ctx.custom_id == progression.custom_id:
+                    classification = ItemClassification.progression
+                else:
+                    print(f"wat: {chosen.ctx.custom_id}")
+                self.datapackages[tracker.game].items[unclassified[0]] = classification
+                await chosen.ctx.send("✅", ephemeral=True)
+            except TimeoutError:
+                pass
+            await msg.channel.delete_message(msg)
+            self.save()
 
     @ap.subcommand("cheese")
     @slash_option("room", "room-id", OptionType.STRING, required=True)
@@ -178,6 +229,9 @@ class APTracker(Extension):
                 if game["completion_status"] == "done":
                     self.remove_tracker(player, game["url"])
                     continue
+
+                if player.id not in self.trackers:
+                    self.trackers[player.id] = []
 
                 for t in self.trackers[player.id]:
                     if t.url == game["url"]:
@@ -210,21 +264,51 @@ class APTracker(Extension):
                 await self.sync_cheese(player, tracker.tracker_id)
                 new_items = tracker.refresh()
                 if new_items:
-                    names = [i[0] for i in new_items]
-                    if isinstance(player, User):
-                        await player.send(f"{tracker.name}: {', '.join(names)}")
-                    else:
-                        print(f"{tracker.url}: {', '.join(names)}")
+                    await self.send_new_items(player, tracker, new_items)
                 await asyncio.sleep(120)
 
         self.save()
 
+    def get_classification(self, game, item):
+        if game not in self.datapackages:
+            self.datapackages[game] = Datapackage(items={})
+        if item not in self.datapackages[game].items:
+            self.datapackages[game].items[item] = ItemClassification.unknown
+        return self.datapackages[game].items[item]
+
     def save(self):
+        trackers = json.dumps(converter.unstructure(self.trackers), indent=2)
         with open("trackers.json", "w") as f:
-            f.write(json.dumps(converter.unstructure(self.trackers)))
+            f.write(trackers)
+        cheese = json.dumps(converter.unstructure(self.cheese), indent=2)
         with open("cheese.json", "w") as f:
-            flat = converter.unstructure(self.cheese)
-            f.write(json.dumps(flat))
+            f.write(cheese)
+        dp = json.dumps(converter.unstructure(self.datapackages), indent=2)
+        with open("datapackages.json", "w") as f:
+            f.write(dp)
+
+    def load(self):
+        if os.path.exists("trackers.json"):
+            with open("trackers.json") as f:
+                self.trackers = converter.structure(
+                    json.loads(f.read()), dict[int, list[TrackedGame]]
+                )
+        try:
+            if os.path.exists("cheese.json"):
+                with open("cheese.json") as f:
+                    self.cheese = converter.structure(
+                        json.loads(f.read()), dict[str, Multiworld]
+                    )
+        except Exception as e:
+            print(e)
+        try:
+            if os.path.exists("datapackages.json"):
+                with open("datapackages.json") as f:
+                    self.datapackages = converter.structure(
+                        json.loads(f.read()), dict[str, Datapackage]
+                    )
+        except Exception as e:
+            print(e)
 
 
 def try_int(text: str) -> str | int:
@@ -232,3 +316,17 @@ def try_int(text: str) -> str | int:
         return int(text)
     except ValueError:
         return text
+
+
+def recolour_buttons(components: list[Button]) -> list[Button]:
+    buttons = []
+    if not components:
+        return []
+    for c in components[0].components:
+        if isinstance(c, Button):
+            buttons.append(
+                Button(
+                    style=ButtonStyle.GREY, label=c.label, emoji=c.emoji, disabled=True
+                )
+            )
+    return buttons

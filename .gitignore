@@ -6,3 +6,5 @@ config.json
 
 .pytype
 /trackers.json
+/cheese.json
+/datapackages.json
