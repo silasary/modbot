@@ -123,6 +123,7 @@ class APTracker(Extension):
     @ap.subcommand("track")
     @slash_option("url", "url", OptionType.STRING, required=True)
     async def ap_track(self, ctx: SlashContext, url: str) -> None:
+        await ctx.defer()
         if ctx.author_id not in self.trackers:
             self.trackers[ctx.author_id] = []
 
@@ -146,7 +147,7 @@ class APTracker(Extension):
             )
             return
 
-        await ctx.defer()
+        await ctx.defer(suppress_error=True)
 
         games = {}
         for tracker in self.trackers[ctx.author_id]:
@@ -232,6 +233,7 @@ class APTracker(Extension):
     @ap.subcommand("cheese")
     @slash_option("room", "room-id", OptionType.STRING, required=True)
     async def ap_cheese(self, ctx: SlashContext, room: str) -> None:
+        await ctx.defer()
         await self.sync_cheese(ctx.author, room)
         await self.ap_refresh(ctx)
 
@@ -240,26 +242,28 @@ class APTracker(Extension):
         await multiworld.refresh()
         self.cheese[room] = multiworld
         for game in multiworld.games.values():
-            if game.get("effective_discord_username") == player.username:
-                game[
-                    "url"
-                ] = f'https://archipelago.gg/tracker/{room}/0/{game["position"]}'
+            game["url"] = f'https://archipelago.gg/tracker/{room}/0/{game["position"]}'
+            for t in self.trackers[player.id]:
+                if t.url == game["url"]:
+                    tracker = t
+                    break
+            else:
+                tracker = None
 
+            if game.get("effective_discord_username") == player.username:
+                if player.id not in self.trackers:
+                    self.trackers[player.id] = []
+
+                if tracker is None:
+                    tracker = TrackedGame(game["url"], 0)
+                    self.trackers[player.id].append(tracker)
+                    self.save()
+
+            if tracker:
                 if game["checks_done"] == game["checks_total"]:
                     self.remove_tracker(player, game["url"])
                     continue
 
-                if player.id not in self.trackers:
-                    self.trackers[player.id] = []
-
-                for t in self.trackers[player.id]:
-                    if t.url == game["url"]:
-                        tracker = t
-                        break
-                else:
-                    tracker = TrackedGame(game["url"], 0)
-                    self.trackers[player.id].append(tracker)
-                    self.save()
                 if multiworld.title:
                     tracker.name = f"***{multiworld.title}*** - **{game['name']}**"
                 else:
