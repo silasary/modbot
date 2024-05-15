@@ -43,7 +43,7 @@ class Datapackage:
 @attrs.define()
 class TrackedGame:
     url: str  # https://archipelago.gg/tracker/tracker_id/0/slot_id
-    latest_item: int
+    latest_item: int = -1
     name: str = None
     game: str = None
     last_check: datetime.datetime = None
@@ -132,7 +132,7 @@ class APTracker(Extension):
                 tracker = t
                 break
         else:
-            tracker = TrackedGame(url, 0)
+            tracker = TrackedGame(url)
             self.trackers[ctx.author_id].append(tracker)
             self.save()
 
@@ -255,7 +255,7 @@ class APTracker(Extension):
                     self.trackers[player.id] = []
 
                 if tracker is None:
-                    tracker = TrackedGame(game["url"], 0)
+                    tracker = TrackedGame(game["url"])
                     self.trackers[player.id].append(tracker)
                     self.save()
 
