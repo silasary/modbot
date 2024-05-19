@@ -82,7 +82,7 @@ class TrackedGame:
 
 @attrs.define()
 class Multiworld:
-    url: str  # https://aptracker.chrishowie.com/api/tracker/room_id
+    url: str  # https://cheesetrackers.theincrediblewheelofchee.se/api/tracker/room_id
     title: str = None
     games: dict[int, dict] = None
     last_check: datetime.datetime = None
@@ -238,7 +238,7 @@ class APTracker(Extension):
         await self.ap_refresh(ctx)
 
     async def sync_cheese(self, player: User, room: str) -> Multiworld:
-        multiworld = Multiworld(f"https://aptracker.chrishowie.com/api/tracker/{room}")
+        multiworld = Multiworld(f"https://cheesetrackers.theincrediblewheelofchee.se/api/tracker/{room}")
         await multiworld.refresh()
         self.cheese[room] = multiworld
         for game in multiworld.games.values():
