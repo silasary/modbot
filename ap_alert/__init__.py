@@ -74,6 +74,9 @@ class TrackedGame:
         rows.sort(key=lambda r: r[last_index])
         if rows[-1][last_index] == self.latest_item:
             return []
+        elif rows[-1][last_index] < self.latest_item:
+            self.latest_item = -1
+            return ["Rollback detected!"]
         self.last_update = datetime.datetime.now()
         new_items = [r for r in rows if r[last_index] > self.latest_item]
         self.latest_item = rows[-1][last_index]
