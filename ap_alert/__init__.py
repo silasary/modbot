@@ -19,6 +19,7 @@ from interactions import (
     Button,
 )
 from interactions.models.internal.tasks import Task, IntervalTrigger
+from interactions.ext.paginators import Paginator
 import requests
 
 converter = cattrs.Converter()
@@ -229,7 +230,12 @@ class APTracker(Extension):
         if len(names) == 1:
             await ctx_or_user.send(f"{slot_name}: {names[0]}", ephemeral=False)
         elif len(names) > 10:
-            await ctx_or_user.send(f"{slot_name}:\n{', '.join(names)}", ephemeral=False)
+            text = f"{slot_name}:\n{', '.join(names)}"
+            if len(text) > 1900:
+                paginator = Paginator.create_from_string(self.bot, text)
+                await paginator.send(ctx_or_user)
+            else:
+                await ctx_or_user.send(text, ephemeral=False)
         else:
             await ctx_or_user.send(f"{slot_name}: {', '.join(names)}", ephemeral=False)
 
