@@ -289,6 +289,7 @@ class APTracker(Extension):
 
             if tracker:
                 if game["checks_done"] == game["checks_total"]:
+                    await player.send(f"Game {tracker.name} is complete")
                     self.remove_tracker(player, game["url"])
                     continue
 
@@ -315,6 +316,9 @@ class APTracker(Extension):
                 await self.sync_cheese(player, tracker.tracker_id)
                 new_items = tracker.refresh()
                 if not new_items and tracker.failures > 10:
+                    await player.send(
+                        f"Tracker {tracker.url} has been removed due to errors"
+                    )
                     self.remove_tracker(player, tracker.url)
                     continue
 
