@@ -49,6 +49,7 @@ class TrackedGame:
     game: str = None
     last_check: datetime.datetime = None
     last_update: datetime.datetime = None
+    failures: int = 0
 
     def __hash__(self) -> int:
         return hash(self.url)
@@ -65,6 +66,10 @@ class TrackedGame:
     def refresh(self) -> None:
         html = requests.get(self.url).content
         soup = BeautifulSoup(html, features="html.parser")
+        title = soup.find("title").string
+        if title == "Page Not Found (404)":
+            self.failures += 1
+            return []
         recieved = soup.find(id="received-table")
         headers = [i.string for i in recieved.find_all("th")]
         rows = [
@@ -90,6 +95,7 @@ class Multiworld:
     title: str = None
     games: dict[int, dict] = None
     last_check: datetime.datetime = None
+    last_update: datetime.datetime = None
 
     async def refresh(self) -> None:
         if (
@@ -103,6 +109,7 @@ class Multiworld:
         data = json.loads(data)
         self.title = data.get("title")
         self.games = {g["position"]: g for g in data.get("games")}
+        self.last_update = datetime.datetime.fromisoformat(data.get("updated_at"))
 
 
 class APTracker(Extension):
@@ -250,6 +257,8 @@ class APTracker(Extension):
         multiworld = Multiworld(f"https://cheesetrackers.theincrediblewheelofchee.se/api/tracker/{room}")
         await multiworld.refresh()
         self.cheese[room] = multiworld
+        age = datetime.datetime.now(tz=datetime.timezone.utc) - multiworld.last_update
+
         for game in multiworld.games.values():
             game["url"] = f'https://archipelago.gg/tracker/{room}/0/{game["position"]}'
             for t in self.trackers[player.id]:
@@ -264,6 +273,11 @@ class APTracker(Extension):
                     self.trackers[player.id] = []
 
                 if tracker is None:
+                    if game["checks_done"] == game[
+                        "checks_total"
+                    ] or age > datetime.timedelta(days=1):
+                        continue
+
                     tracker = TrackedGame(game["url"])
                     self.trackers[player.id].append(tracker)
                     self.save()
@@ -295,6 +309,10 @@ class APTracker(Extension):
             for tracker in trackers:
                 await self.sync_cheese(player, tracker.tracker_id)
                 new_items = tracker.refresh()
+                if not new_items and tracker.failures > 10:
+                    self.remove_tracker(player, tracker.url)
+                    continue
+
                 if new_items:
                     await self.send_new_items(player, tracker, new_items)
                     asyncio.create_task(self.try_classify(player, tracker, new_items))
