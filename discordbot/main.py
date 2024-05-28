@@ -16,7 +16,8 @@ class Bot(interactions.Client):
         )
         super().load_extension(
             "interactions.ext.sentry",
-            token="https://7aadf0c15f880e90e01c4dba496f152d@o233010.ingest.us.sentry.io/4507219660832768",
+            dsn="https://7aadf0c15f880e90e01c4dba496f152d@o233010.ingest.us.sentry.io/4507219660832768",
+            enable_tracing=True,
         )
         super().load_extension("roles.colour")
         super().load_extension("ap_alert")

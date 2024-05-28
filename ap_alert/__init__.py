@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import enum
 import json
+import logging
 import os
 import attrs
 import cattrs
@@ -64,6 +65,7 @@ class TrackedGame:
         return self.url.split("/")[-1]
 
     def refresh(self) -> None:
+        logging.info(f"Refreshing {self.url}")
         html = requests.get(self.url).content
         soup = BeautifulSoup(html, features="html.parser")
         title = soup.find("title").string
@@ -105,6 +107,7 @@ class Multiworld:
             return
         self.last_check = datetime.datetime.now()
 
+        logging.info(f"Refreshing {self.url}")
         data = requests.get(self.url).text
         data = json.loads(data)
         self.title = data.get("title")
@@ -254,7 +257,9 @@ class APTracker(Extension):
         await self.ap_refresh(ctx)
 
     async def sync_cheese(self, player: User, room: str) -> Multiworld:
-        multiworld = Multiworld(f"https://cheesetrackers.theincrediblewheelofchee.se/api/tracker/{room}")
+        multiworld = Multiworld(
+            f"https://cheesetrackers.theincrediblewheelofchee.se/api/tracker/{room}"
+        )
         await multiworld.refresh()
         self.cheese[room] = multiworld
         age = datetime.datetime.now(tz=datetime.timezone.utc) - multiworld.last_update
