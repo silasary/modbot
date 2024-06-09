@@ -257,9 +257,20 @@ class APTracker(Extension):
         await self.ap_refresh(ctx)
 
     async def sync_cheese(self, player: User, room: str) -> Multiworld:
-        multiworld = Multiworld(
-            f"https://cheesetrackers.theincrediblewheelofchee.se/api/tracker/{room}"
-        )
+        multiworld = self.cheese.get(room)
+        if multiworld is None:
+            ap_url = f"https://archipelago.gg/tracker/{room}"
+            ch_id = (
+                requests.post(
+                    "https://cheesetrackers.theincrediblewheelofchee.se/api/tracker",
+                    json={"url": ap_url},
+                )
+                .json()
+                .get("tracker_id")
+            )
+            multiworld = Multiworld(
+                f"https://cheesetrackers.theincrediblewheelofchee.se/api/tracker/{ch_id}"
+            )
         await multiworld.refresh()
         self.cheese[room] = multiworld
         age = datetime.datetime.now(tz=datetime.timezone.utc) - multiworld.last_update
