@@ -78,6 +78,9 @@ class TrackedGame:
             [try_int(i.string) for i in r.find_all("td")]
             for r in recieved.find_all("tr")[1:]
         ]
+        if not rows:
+            return []
+
         last_index = headers.index("Last Order Received")
         rows.sort(key=lambda r: r[last_index])
         if rows[-1][last_index] == self.latest_item:
@@ -337,6 +340,17 @@ class APTracker(Extension):
                     await self.send_new_items(player, tracker, new_items)
                     asyncio.create_task(self.try_classify(player, tracker, new_items))
                 await asyncio.sleep(120)
+
+        to_delete = []
+        for room_id, multiwold in self.cheese.items():
+            if datetime.datetime.now(
+                tz=multiwold.last_update.tzinfo
+            ) - multiwold.last_update > datetime.timedelta(days=7):
+                print(f"Removing {room_id} from cheese trackers")
+                to_delete.append(room_id)
+
+        for room_id in to_delete:
+            del self.cheese[room_id]
 
         self.save()
 
