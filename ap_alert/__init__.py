@@ -24,16 +24,10 @@ from interactions.ext.paginators import Paginator
 import requests
 
 converter = cattrs.Converter()
-converter.register_structure_hook(
-    datetime.datetime, lambda x, *_: datetime.datetime.fromisoformat(x) if x else None
-)
-converter.register_unstructure_hook(
-    datetime.datetime, lambda x, *_: x.isoformat() if x else None
-)
+converter.register_structure_hook(datetime.datetime, lambda x, *_: datetime.datetime.fromisoformat(x) if x else None)
+converter.register_unstructure_hook(datetime.datetime, lambda x, *_: x.isoformat() if x else None)
 
-ItemClassification = enum.Enum(
-    "ItemClassification", "unknown trap filler useful progression"
-)
+ItemClassification = enum.Enum("ItemClassification", "unknown trap filler useful progression")
 
 
 @attrs.define()
@@ -74,10 +68,7 @@ class TrackedGame:
             return []
         recieved = soup.find(id="received-table")
         headers = [i.string for i in recieved.find_all("th")]
-        rows = [
-            [try_int(i.string) for i in r.find_all("td")]
-            for r in recieved.find_all("tr")[1:]
-        ]
+        rows = [[try_int(i.string) for i in r.find_all("td")] for r in recieved.find_all("tr")[1:]]
         if not rows:
             return []
 
@@ -103,10 +94,7 @@ class Multiworld:
     last_update: datetime.datetime = None
 
     async def refresh(self) -> None:
-        if (
-            self.last_check
-            and datetime.datetime.now() - self.last_check < datetime.timedelta(days=1)
-        ):
+        if self.last_check and datetime.datetime.now() - self.last_check < datetime.timedelta(days=1):
             return
         self.last_check = datetime.datetime.now()
 
@@ -129,9 +117,7 @@ class APTracker(Extension):
     @listen()
     async def on_startup(self) -> None:
         self.refresh_all.start()
-        self.refresh_all.trigger.last_call_time = (
-            datetime.datetime.now() - datetime.timedelta(hours=1)
-        )
+        self.refresh_all.trigger.last_call_time = datetime.datetime.now() - datetime.timedelta(hours=1)
 
     @slash_command("ap")
     async def ap(self, ctx: SlashContext) -> None:
@@ -159,9 +145,7 @@ class APTracker(Extension):
     @ap.subcommand("refresh")
     async def ap_refresh(self, ctx: SlashContext) -> None:
         if ctx.author_id not in self.trackers:
-            await ctx.send(
-                f"Track a game with {self.ap_track.mention()} first", ephemeral=True
-            )
+            await ctx.send(f"Track a game with {self.ap_track.mention()} first", ephemeral=True)
             return
 
         await ctx.defer(suppress_error=True)
@@ -182,14 +166,8 @@ class APTracker(Extension):
         for tracker, items in games.items():
             await self.try_classify(ctx, tracker, items)
 
-    async def try_classify(
-        self, ctx: SlashContext | User, tracker: TrackedGame, new_items: list[str]
-    ) -> None:
-        unclassified = [
-            i[0]
-            for i in new_items
-            if self.get_classification(tracker.game, i[0]) == ItemClassification.unknown
-        ]
+    async def try_classify(self, ctx: SlashContext | User, tracker: TrackedGame, new_items: list[str]) -> None:
+        unclassified = [i[0] for i in new_items if self.get_classification(tracker.game, i[0]) == ItemClassification.unknown]
         for item in unclassified:
             filler = Button(style=ButtonStyle.GREY, label="Filler")
             useful = Button(style=ButtonStyle.GREEN, label="Useful")
@@ -224,10 +202,7 @@ class APTracker(Extension):
         new_items: list[str],
     ):
         def icon(item):
-            if (
-                tracker.game in self.datapackages
-                and item in self.datapackages[tracker.game].items
-            ):
+            if tracker.game in self.datapackages and item in self.datapackages[tracker.game].items:
                 classification = self.datapackages[tracker.game].items[item]
                 if classification == ItemClassification.filler:
                     return "🔘"
@@ -271,9 +246,7 @@ class APTracker(Extension):
                 .json()
                 .get("tracker_id")
             )
-            multiworld = Multiworld(
-                f"https://cheesetrackers.theincrediblewheelofchee.se/api/tracker/{ch_id}"
-            )
+            multiworld = Multiworld(f"https://cheesetrackers.theincrediblewheelofchee.se/api/tracker/{ch_id}")
         await multiworld.refresh()
         self.cheese[room] = multiworld
         age = datetime.datetime.now(tz=datetime.timezone.utc) - multiworld.last_update
@@ -292,9 +265,7 @@ class APTracker(Extension):
                     self.trackers[player.id] = []
 
                 if tracker is None:
-                    if game["checks_done"] == game[
-                        "checks_total"
-                    ] or age > datetime.timedelta(days=1):
+                    if game["checks_done"] == game["checks_total"] or age > datetime.timedelta(days=1):
                         continue
 
                     tracker = TrackedGame(game["url"])
@@ -330,9 +301,7 @@ class APTracker(Extension):
                 await self.sync_cheese(player, tracker.tracker_id)
                 new_items = tracker.refresh()
                 if not new_items and tracker.failures > 10:
-                    await player.send(
-                        f"Tracker {tracker.url} has been removed due to errors"
-                    )
+                    await player.send(f"Tracker {tracker.url} has been removed due to errors")
                     self.remove_tracker(player, tracker.url)
                     continue
 
@@ -343,9 +312,7 @@ class APTracker(Extension):
 
         to_delete = []
         for room_id, multiwold in self.cheese.items():
-            if datetime.datetime.now(
-                tz=multiwold.last_update.tzinfo
-            ) - multiwold.last_update > datetime.timedelta(days=7):
+            if multiwold.last_update and datetime.datetime.now(tz=multiwold.last_update.tzinfo) - multiwold.last_update > datetime.timedelta(days=7):
                 print(f"Removing {room_id} from cheese trackers")
                 to_delete.append(room_id)
 
@@ -375,23 +342,17 @@ class APTracker(Extension):
     def load(self):
         if os.path.exists("trackers.json"):
             with open("trackers.json") as f:
-                self.trackers = converter.structure(
-                    json.loads(f.read()), dict[int, list[TrackedGame]]
-                )
+                self.trackers = converter.structure(json.loads(f.read()), dict[int, list[TrackedGame]])
         try:
             if os.path.exists("cheese.json"):
                 with open("cheese.json") as f:
-                    self.cheese = converter.structure(
-                        json.loads(f.read()), dict[str, Multiworld]
-                    )
+                    self.cheese = converter.structure(json.loads(f.read()), dict[str, Multiworld])
         except Exception as e:
             print(e)
         try:
             if os.path.exists("datapackages.json"):
                 with open("datapackages.json") as f:
-                    self.datapackages = converter.structure(
-                        json.loads(f.read()), dict[str, Datapackage]
-                    )
+                    self.datapackages = converter.structure(json.loads(f.read()), dict[str, Datapackage])
         except Exception as e:
             print(e)
 
@@ -409,9 +370,5 @@ def recolour_buttons(components: list[Button]) -> list[Button]:
         return []
     for c in components[0].components:
         if isinstance(c, Button):
-            buttons.append(
-                Button(
-                    style=ButtonStyle.GREY, label=c.label, emoji=c.emoji, disabled=True
-                )
-            )
+            buttons.append(Button(style=ButtonStyle.GREY, label=c.label, emoji=c.emoji, disabled=True))
     return buttons
