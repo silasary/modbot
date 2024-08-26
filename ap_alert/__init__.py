@@ -213,11 +213,11 @@ class APTracker(Extension):
             if tracker.game in self.datapackages and item in self.datapackages[tracker.game].items:
                 classification = self.datapackages[tracker.game].items[item]
                 if classification == ItemClassification.filler:
-                    return "🔘"
+                    return "<:apfiller:1277502385459171338>"
                 if classification == ItemClassification.useful:
-                    return "🔵"
+                    return "<:apuseful:1277502389729103913>"
                 if classification == ItemClassification.progression:
-                    return "✨"
+                    return "<:approg:1277502382682542143>"
             return "❓"
 
         names = [f"{icon(i[0])} {i[0]}" for i in new_items]
