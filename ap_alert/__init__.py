@@ -124,23 +124,31 @@ class APTracker(Extension):
         """Monitor for Archipelago games"""
 
     @ap.subcommand("track")
-    @slash_option("url", "url", OptionType.STRING, required=True)
+    @slash_option("url", "URL of the multiworld tracker", OptionType.STRING, required=True)
     async def ap_track(self, ctx: SlashContext, url: str) -> None:
-        await ctx.defer()
-        if ctx.author_id not in self.trackers:
-            self.trackers[ctx.author_id] = []
+        """Track an Archipelago game."""
+        if url.split("/")[-1].isnumeric():
+            # Track slot
+            await ctx.defer()
+            if ctx.author_id not in self.trackers:
+                self.trackers[ctx.author_id] = []
 
-        for t in self.trackers[ctx.author_id]:
-            if t.url == url:
-                tracker = t
-                break
+            for t in self.trackers[ctx.author_id]:
+                if t.url == url:
+                    tracker = t
+                    break
+            else:
+                tracker = TrackedGame(url)
+                self.trackers[ctx.author_id].append(tracker)
+                self.save()
+
+            new_items = tracker.refresh()
+            await self.send_new_items(ctx, tracker, new_items)
         else:
-            tracker = TrackedGame(url)
-            self.trackers[ctx.author_id].append(tracker)
-            self.save()
-
-        new_items = tracker.refresh()
-        await self.send_new_items(ctx, tracker, new_items)
+            # Track cheese room
+            await ctx.defer()
+            await self.sync_cheese(ctx.author, url)
+            await self.ap_refresh(ctx)
 
     @ap.subcommand("refresh")
     async def ap_refresh(self, ctx: SlashContext) -> None:
@@ -178,7 +186,7 @@ class APTracker(Extension):
                 components=[[filler, useful, progression]],
             )
             try:
-                chosen = await self.bot.wait_for_component(msg, timeout=600)
+                chosen = await self.bot.wait_for_component(msg, timeout=3600)
                 if chosen.ctx.custom_id == filler.custom_id:
                     classification = ItemClassification.filler
                 elif chosen.ctx.custom_id == useful.custom_id:
@@ -227,7 +235,7 @@ class APTracker(Extension):
         else:
             await ctx_or_user.send(f"{slot_name}: {', '.join(names)}", ephemeral=False)
 
-    @ap.subcommand("cheese")
+    # @ap.subcommand("cheese")
     @slash_option("room", "room-id", OptionType.STRING, required=True)
     async def ap_cheese(self, ctx: SlashContext, room: str) -> None:
         await ctx.defer()
@@ -235,6 +243,8 @@ class APTracker(Extension):
         await self.ap_refresh(ctx)
 
     async def sync_cheese(self, player: User, room: str) -> Multiworld:
+        if '/tracker/' in room:
+            room = room.split('/')[-1]
         multiworld = self.cheese.get(room)
         if multiworld is None:
             ap_url = f"https://archipelago.gg/tracker/{room}"
@@ -253,7 +263,8 @@ class APTracker(Extension):
 
         for game in multiworld.games.values():
             game["url"] = f'https://archipelago.gg/tracker/{room}/0/{game["position"]}'
-            for t in self.trackers[player.id]:
+
+            for t in self.trackers.get(player.id, []):
                 if t.url == game["url"]:
                     tracker = t
                     break

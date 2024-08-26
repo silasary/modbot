@@ -1,3 +1,5 @@
+import asyncio
+import sys
 from redis import asyncio as aioredis
 import interactions
 from interactions.ext import prefixed_commands as prefixed
@@ -5,6 +7,8 @@ from interactions.ext import hybrid_commands as hybrid
 
 from shared import configuration
 
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 class Bot(interactions.Client):
     def __init__(self) -> None:
