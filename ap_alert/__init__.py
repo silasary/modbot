@@ -72,6 +72,7 @@ class TrackedGame:
         if not rows:
             return []
 
+        self.last_check = datetime.datetime.now()
         last_index = headers.index("Last Order Received")
         rows.sort(key=lambda r: r[last_index])
         if rows[-1][last_index] == self.latest_item:
@@ -304,7 +305,7 @@ class APTracker(Extension):
 
     @Task.create(IntervalTrigger(hours=1))
     async def refresh_all(self) -> None:
-        for user, trackers in self.trackers.items():
+        for user, trackers in self.trackers.copy().items():
             player = await self.bot.fetch_user(user)
             if not player:
                 continue
@@ -319,11 +320,14 @@ class APTracker(Extension):
                 if new_items:
                     await self.send_new_items(player, tracker, new_items)
                     asyncio.create_task(self.try_classify(player, tracker, new_items))
-                await asyncio.sleep(120)
+                await asyncio.sleep(60)
 
         to_delete = []
         for room_id, multiwold in self.cheese.items():
             if multiwold.last_update and datetime.datetime.now(tz=multiwold.last_update.tzinfo) - multiwold.last_update > datetime.timedelta(days=7):
+                print(f"Removing {room_id} from cheese trackers")
+                to_delete.append(room_id)
+            elif multiwold.last_update is None and datetime.datetime.now(tz=datetime.timezone.utc) - multiwold.last_check > datetime.timedelta(days=30):
                 print(f"Removing {room_id} from cheese trackers")
                 to_delete.append(room_id)
 
