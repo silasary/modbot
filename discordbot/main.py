@@ -24,7 +24,7 @@ class Bot(interactions.Client):
             enable_tracing=True,
         )
         super().load_extension("roles.colour")
-        super().load_extension("ap_alert")
+        # super().load_extension("ap_alert")
         # super().load_extension('discordbot.updater')
         # super().load_extension('discordbot.botguild')
         super().load_extension("notices_channel")

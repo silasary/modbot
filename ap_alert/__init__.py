@@ -305,6 +305,7 @@ class APTracker(Extension):
 
     @Task.create(IntervalTrigger(hours=1))
     async def refresh_all(self) -> None:
+        return
         for user, trackers in self.trackers.copy().items():
             player = await self.bot.fetch_user(user)
             if not player:
