@@ -327,7 +327,7 @@ class APTracker(Extension):
             if multiwold.last_update and datetime.datetime.now(tz=multiwold.last_update.tzinfo) - multiwold.last_update > datetime.timedelta(days=7):
                 print(f"Removing {room_id} from cheese trackers")
                 to_delete.append(room_id)
-            elif multiwold.last_update is None and datetime.datetime.now(tz=datetime.timezone.utc) - multiwold.last_check > datetime.timedelta(days=30):
+            elif multiwold.last_update is None and datetime.datetime.now() - multiwold.last_check > datetime.timedelta(days=30):
                 print(f"Removing {room_id} from cheese trackers")
                 to_delete.append(room_id)
 
