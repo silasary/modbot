@@ -1,16 +1,15 @@
 import aiohttp
 from bs4 import BeautifulSoup
-from rss_parser.models.rss.item import Item
-from rss_parser.models.rss.channel import Channel
+from feedparser import FeedParserDict
 
 
 class DefaultSolver:
-    def __init__(self, feed: dict, channel: Channel) -> None:
+    def __init__(self, feed: dict, channel: FeedParserDict) -> None:
         self.feed = feed
         self.channel = channel
         feed["generator"] = getattr(channel, "generator", "")
 
-    async def solve(self, item: Item) -> str:
+    async def solve(self, item: FeedParserDict) -> str:
         if self.feed["generator"] and self.feed["generator"].startswith("https://wordpress.org/"):
             self.feed["solver"] = "WordpressSolver"
 
@@ -25,7 +24,7 @@ class DefaultSolver:
     def channel_title(self):
         return self.channel.title
 
-    async def fetch_link(self, item: Item) -> str:
+    async def fetch_link(self, item: FeedParserDict) -> str:
         url = item.links[0].href
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -34,7 +33,7 @@ class DefaultSolver:
 
 
 class WordpressSolver(DefaultSolver):
-    async def solve(self, item: Item) -> str:
+    async def solve(self, item: FeedParserDict) -> str:
         content = await self.fetch_link(item)
         soup = BeautifulSoup(content, "html.parser")
         post = soup.find("div", class_="entry-content")
@@ -46,7 +45,7 @@ class WordpressSolver(DefaultSolver):
 
 
 class ComicRocketSolver(DefaultSolver):
-    async def solve(self, item: Item) -> str:
+    async def solve(self, item: FeedParserDict) -> str:
         content = await self.fetch_link(item)
         soup = BeautifulSoup(content, "html.parser")
         body = soup.find("div", _id="serialpagebody")
