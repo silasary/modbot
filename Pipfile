@@ -14,10 +14,10 @@ beautifulsoup4 = "*"
 cattrs = "*"
 "interactions.py" = {extras = ["speedup"], version = "*"}
 "jurigged" = "*"
+feedparser = "*"
 
 [dev-packages]
 autopep8 = "*"
 pylint = "*"
 mypy = "*"
 rope = "*"
-
