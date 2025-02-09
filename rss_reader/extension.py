@@ -27,7 +27,7 @@ class RssReader(Extension):
         new_feed = {"url": url, "seen": [], "user": ctx.author.id}
         self.feeds.append(new_feed)
         self.save()
-        await ctx.send("Feed added!")
+        await ctx.send("Feed added!", ephemeral=True)
         await self.check_feed(new_feed)
 
     def save(self):
