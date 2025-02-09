@@ -35,7 +35,7 @@ class RssReader(Extension):
         with open("feeds.json", "w") as f:
             f.write(dump)
 
-    @Task.create(CronTrigger("0 0 * * *"))
+    @Task.create(CronTrigger("0 */4 * * *"))
     async def fetch_feeds(self):
         updated = False
         for feed in self.feeds:

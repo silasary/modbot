@@ -12,6 +12,8 @@ class DefaultSolver:
     async def solve(self, item: FeedParserDict) -> str:
         if self.feed["generator"] and self.feed["generator"].startswith("https://wordpress.org/"):
             self.feed["solver"] = "WordpressSolver"
+        elif self.channel.link.startswith("https://www.comic-rocket.com/feeds/"):
+            self.feed["solver"] = "ComicRocketSolver"
 
         if self.feed["solver"] != "DefaultSolver":
             solver_class = globals()[self.feed["solver"]]
@@ -48,7 +50,7 @@ class ComicRocketSolver(DefaultSolver):
     async def solve(self, item: FeedParserDict) -> str:
         content = await self.fetch_link(item)
         soup = BeautifulSoup(content, "html.parser")
-        body = soup.find("div", _id="serialpagebody")
+        body = soup.find("div", id="serialpagebody")
         iframe = body.find("iframe")
         url = iframe["src"]
 
