@@ -5,7 +5,7 @@ import urllib.parse
 
 
 def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserDict]) -> "DefaultSolver":
-    if feed.get("generator") and feed["generator"].startswith("https://wordpress.org/"):
+    if channel.get("generator") and channel["generator"].startswith("https://wordpress.org/"):
         feed["solver"] = "WordpressSolver"
     elif channel.link.startswith("https://www.comic-rocket.com/feeds/"):
         feed["solver"] = "ComicRocketSolver"
@@ -33,19 +33,8 @@ class DefaultSolver:
     def __init__(self, feed: dict, channel: FeedParserDict) -> None:
         self.feed = feed
         self.channel = channel
-        feed["generator"] = getattr(channel, "generator", "")
 
     async def solve(self, item: FeedParserDict) -> str:
-        if self.feed["generator"] and self.feed["generator"].startswith("https://wordpress.org/"):
-            self.feed["solver"] = "WordpressSolver"
-        elif self.channel.link.startswith("https://www.comic-rocket.com/feeds/"):
-            self.feed["solver"] = "ComicRocketSolver"
-
-        if self.feed["solver"] != "DefaultSolver":
-            solver_class = globals()[self.feed["solver"]]
-            solver_instance = solver_class(self.feed, self.channel)
-            return await solver_instance.solve(item)
-
         return f"New post in {self.channel_title}: [{item.title}]({item.links[0].href})"
 
     @property
