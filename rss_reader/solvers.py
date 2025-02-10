@@ -42,9 +42,9 @@ class DefaultSolver:
         return self.channel.title
 
     async def fetch_link(self, item: FeedParserDict) -> str:
-        url = item.links[0].href
+        self.url = item.links[0].href
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
+            async with session.get(self.url) as resp:
                 data = await resp.text()
         return data
 
@@ -64,6 +64,10 @@ class WordpressSolver(DefaultSolver):
 class ComicRocketSolver(DefaultSolver):
     async def solve(self, item: FeedParserDict) -> str:
         content = await self.fetch_link(item)
+        if not self.url.startswith("https://www.comic-rocket.com/"):
+            # Not a comic rocket page
+            return f"New post in {self.channel_title}: [{item.title}]({self.url})"
+
         soup = BeautifulSoup(content, "html.parser")
         body = soup.find("div", id="serialpagebody")
         iframe = body.find("iframe")
@@ -88,7 +92,10 @@ class FreefallSolver(ComicRocketSolver):
 
 class ImgIdSolver(ComicRocketSolver):
     async def solve(self, item: FeedParserDict) -> str:
-        content = await self.fetch_link(item)
+        await super().solve(item)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(self.url) as resp:
+                content = await resp.text()
         soup = BeautifulSoup(content, "html.parser")
         img = soup.find("img", id=self.feed["img_id"])
         url = img["src"]
