@@ -12,6 +12,12 @@ def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserD
         comic_name = entries[0].link.split("/")[-2]
         if comic_name == "freefall":
             feed["solver"] = "FreefallSolver"
+        elif comic_name == "questionable-content":
+            feed["solver"] = "ImgIdSolver"
+            feed["img_id"] = "strip"
+        elif comic_name in ["el-goonish-shive", "egs-np"]:
+            feed["solver"] = "ImgIdSolver"
+            feed["img_id"] = "cc-comic"
 
     if feed["solver"] and feed["solver"] != "DefaultSolver":
         solver_class = globals().get(feed["solver"], None)
@@ -88,4 +94,13 @@ class FreefallSolver(ComicRocketSolver):
 
         url = urllib.parse.urljoin(self.url, img["src"])
 
+        return f"New post in {self.channel_title}: [{item.title}]({url})"
+
+
+class ImgIdSolver(ComicRocketSolver):
+    async def solve(self, item: FeedParserDict) -> str:
+        content = await self.fetch_link(item)
+        soup = BeautifulSoup(content, "html.parser")
+        img = soup.find("img", id=self.feed["img_id"])
+        url = img["src"]
         return f"New post in {self.channel_title}: [{item.title}]({url})"
