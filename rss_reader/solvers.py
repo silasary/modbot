@@ -5,7 +5,7 @@ import urllib.parse
 
 
 def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserDict]) -> "DefaultSolver":
-    if feed["generator"] and feed["generator"].startswith("https://wordpress.org/"):
+    if feed.get("generator") and feed["generator"].startswith("https://wordpress.org/"):
         feed["solver"] = "WordpressSolver"
     elif channel.link.startswith("https://www.comic-rocket.com/feeds/"):
         feed["solver"] = "ComicRocketSolver"
