@@ -1,6 +1,26 @@
 import aiohttp
 from bs4 import BeautifulSoup
 from feedparser import FeedParserDict
+import urllib.parse
+
+
+def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserDict]) -> "DefaultSolver":
+    if feed["generator"] and feed["generator"].startswith("https://wordpress.org/"):
+        feed["solver"] = "WordpressSolver"
+    elif channel.link.startswith("https://www.comic-rocket.com/feeds/"):
+        feed["solver"] = "ComicRocketSolver"
+        comic_name = entries[0].link.split("/")[-2]
+        if comic_name == "freefall":
+            feed["solver"] = "FreefallSolver"
+
+    if feed["solver"] and feed["solver"] != "DefaultSolver":
+        solver_class = globals().get(feed["solver"], None)
+        if not solver_class:
+            feed["solver"] = "DefaultSolver"
+            return DefaultSolver(feed, channel)
+        return solver_class(feed, channel)
+
+    return DefaultSolver(feed, channel)
 
 
 class DefaultSolver:
@@ -20,7 +40,7 @@ class DefaultSolver:
             solver_instance = solver_class(self.feed, self.channel)
             return await solver_instance.solve(item)
 
-        return f"New post in {self.channel_title}: {item.title} - {item.links[0].href}"
+        return f"New post in {self.channel_title}: [{item.title}]({item.links[0].href})"
 
     @property
     def channel_title(self):
@@ -43,7 +63,7 @@ class WordpressSolver(DefaultSolver):
         if image:
             image = image["src"]
             return f"New post in {self.channel_title}: {item.title} - {image}"
-        return f"New post in {self.channel_title}: {item.title} - {item.links[0].href}"
+        return f"New post in {self.channel_title}: [{item.title}]({item.links[0].href})"
 
 
 class ComicRocketSolver(DefaultSolver):
@@ -52,6 +72,20 @@ class ComicRocketSolver(DefaultSolver):
         soup = BeautifulSoup(content, "html.parser")
         body = soup.find("div", id="serialpagebody")
         iframe = body.find("iframe")
-        url = iframe["src"]
+        self.url = iframe["src"]
 
-        return f"New post in {self.channel_title}: {item.title} - {url}"
+        return f"New post in {self.channel_title}: [{item.title}]({self.url})"
+
+
+class FreefallSolver(ComicRocketSolver):
+    async def solve(self, item: FeedParserDict) -> str:
+        await super().solve(item)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(self.url) as resp:
+                data = await resp.text()
+        soup = BeautifulSoup(data, "html.parser")
+        img = soup.find("img")
+
+        url = urllib.parse.urljoin(self.url, img["src"])
+
+        return f"New post in {self.channel_title}: [{item.title}]({url})"

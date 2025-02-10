@@ -5,7 +5,7 @@ import feedparser
 import json
 import os
 
-from rss_reader.solvers import DefaultSolver, WordpressSolver
+from rss_reader.solvers import create_solver
 
 
 class RssReader(Extension):
@@ -35,7 +35,7 @@ class RssReader(Extension):
         with open("feeds.json", "w") as f:
             f.write(dump)
 
-    @Task.create(CronTrigger("0 */4 * * *"))
+    @Task.create(CronTrigger("0 * * * *"))
     async def fetch_feeds(self):
         updated = False
         for feed in self.feeds:
@@ -55,13 +55,7 @@ class RssReader(Extension):
                 data = await resp.text()
 
         rss = feedparser.parse(data)
-        match feed.setdefault("solver", "DefaultSolver"):
-            case "DefaultSolver":
-                solver = DefaultSolver(feed, rss.feed)
-            case "WordpressSolver":
-                solver = WordpressSolver(feed, rss.feed)
-            case _:
-                solver = DefaultSolver(feed, rss.feed)
+        solver = create_solver(feed, rss.feed, rss.entries)
 
         items = rss.entries
         if hasattr(items[0], "published_parsed"):
