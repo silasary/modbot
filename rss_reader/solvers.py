@@ -98,5 +98,6 @@ class ImgIdSolver(ComicRocketSolver):
                 content = await resp.text()
         soup = BeautifulSoup(content, "html.parser")
         img = soup.find("img", id=self.feed["img_id"])
-        url = img["src"]
+        url = urllib.parse.urljoin(self.url, img["src"])
+
         return f"New post in {self.channel_title}: [{item.title}]({url})"
