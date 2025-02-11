@@ -70,7 +70,7 @@ class RssReader(Extension):
             content = await solver.solve(item)
             await user.send(content)
             seen.append(item.guid)
-            if len(seen) > 50:
+            if len(seen) > len(items) * 2:
                 seen.pop(0)
             count += 1
             updated = True
