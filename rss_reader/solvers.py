@@ -3,6 +3,8 @@ from bs4 import BeautifulSoup
 from feedparser import FeedParserDict
 import urllib.parse
 
+import sentry_sdk
+
 
 def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserDict]) -> "DefaultSolver":
     if channel.get("generator") and channel["generator"].startswith("https://wordpress.org/"):
@@ -35,7 +37,22 @@ class DefaultSolver:
         self.channel = channel
 
     async def solve(self, item: FeedParserDict) -> str:
-        return f"New post in {self.channel_title}: [{item.title}]({item.links[0].href})"
+        return self.format_message(item, item.links[0].href, None)
+
+    def format_message(self, item, page_url, img_url):
+        post = "post"
+        title = item.title
+
+        if img_url and page_url:
+            post = f"[post](<{page_url}>)"
+            title = f"[{item.title}]({img_url})"
+        elif img_url:
+            title = f"[{item.title}]({img_url})"
+        elif page_url:
+            post = f"[post]({page_url})"
+
+        msg = f"New {post} in {self.channel_title}: {title}"
+        return msg
 
     @property
     def channel_title(self):
@@ -57,8 +74,8 @@ class WordpressSolver(DefaultSolver):
         image = post.find("img")
         if image:
             image = image["src"]
-            return f"New post in {self.channel_title}: {item.title} - {image}"
-        return f"New post in {self.channel_title}: [{item.title}]({item.links[0].href})"
+            return self.format_message(item, item.links[0].href, image)
+        return self.format_message(item, item.links[0].href, None)
 
 
 class ComicRocketSolver(DefaultSolver):
@@ -66,14 +83,14 @@ class ComicRocketSolver(DefaultSolver):
         content = await self.fetch_link(item)
         if not self.url.startswith("https://www.comic-rocket.com/"):
             # Not a comic rocket page
-            return f"New post in {self.channel_title}: [{item.title}]({self.url})"
+            return self.format_message(item, self.url, None)
 
         soup = BeautifulSoup(content, "html.parser")
         body = soup.find("div", id="serialpagebody")
         iframe = body.find("iframe")
         self.url = iframe["src"]
 
-        return f"New post in {self.channel_title}: [{item.title}]({self.url})"
+        return self.format_message(item, self.url, None)
 
 
 class FreefallSolver(ComicRocketSolver):
@@ -87,17 +104,21 @@ class FreefallSolver(ComicRocketSolver):
 
         url = urllib.parse.urljoin(self.url, img["src"])
 
-        return f"New post in {self.channel_title}: [{item.title}]({url})"
+        return self.format_message(item, self.url, url)
 
 
 class ImgIdSolver(ComicRocketSolver):
     async def solve(self, item: FeedParserDict) -> str:
-        await super().solve(item)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.url) as resp:
-                content = await resp.text()
-        soup = BeautifulSoup(content, "html.parser")
-        img = soup.find("img", id=self.feed["img_id"])
-        url = urllib.parse.urljoin(self.url, img["src"])
+        fallback = await super().solve(item)
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(self.url) as resp:
+                    content = await resp.text()
+            soup = BeautifulSoup(content, "html.parser")
+            img = soup.find("img", id=self.feed["img_id"])
+            url = urllib.parse.urljoin(self.url, img["src"])
 
-        return f"New post in {self.channel_title}: [{item.title}]({url})"
+            return self.format_message(item, self.url, url)
+        except UnicodeDecodeError as e:
+            sentry_sdk.capture_exception(e)
+            return fallback

@@ -5,6 +5,8 @@ import feedparser
 import json
 import os
 
+import sentry_sdk
+
 from rss_reader.solvers import create_solver
 
 
@@ -65,15 +67,19 @@ class RssReader(Extension):
             items.reverse()
         count = 0
         for item in items:
-            if item.guid in seen:
-                continue
-            content = await solver.solve(item)
-            await user.send(content)
-            seen.append(item.guid)
-            if len(seen) > len(items) * 2:
-                seen.pop(0)
-            count += 1
-            updated = True
-            if count > 2:
-                break
+            try:
+                if item.guid in seen:
+                    continue
+                content = await solver.solve(item)
+                await user.send(content)
+                seen.append(item.guid)
+                if len(seen) > len(items) * 2:
+                    seen.pop(0)
+                count += 1
+                updated = True
+                if count > 2:
+                    break
+            except Exception as e:
+                print(e)
+                sentry_sdk.capture_exception(e)
         return updated
