@@ -77,7 +77,7 @@ class RssReader(Extension):
                     seen.pop(0)
                 count += 1
                 updated = True
-                if count > 2:
+                if count > 4:
                     break
             except Exception as e:
                 print(e)
