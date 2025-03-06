@@ -30,6 +30,7 @@ class Bot(interactions.Client):
         # super().load_extension('discordbot.botguild')
         super().load_extension("notices_channel")
         super().load_extension("honk")
+        super().load_extension("pf_bot")
         super().load_extension("interactions.ext.jurigged")
 
         # super().load_extension('spoilerchan.spoilers')
