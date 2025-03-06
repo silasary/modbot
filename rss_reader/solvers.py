@@ -21,7 +21,7 @@ def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserD
             feed["solver"] = "ImgIdSolver"
             feed["img_id"] = "cc-comic"
 
-    if feed["solver"] and feed["solver"] != "DefaultSolver":
+    if feed.get("solver") and feed["solver"] != "DefaultSolver":
         solver_class = globals().get(feed["solver"], None)
         if not solver_class:
             feed["solver"] = "DefaultSolver"
