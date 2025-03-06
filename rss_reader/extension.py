@@ -1,4 +1,5 @@
 import aiohttp
+from bs4 import BeautifulSoup
 from interactions import Client, CronTrigger, Extension, OptionType, SlashContext, Task, listen, slash_command, slash_option
 import feedparser
 
@@ -57,6 +58,10 @@ class RssReader(Extension):
                 data = await resp.text()
 
         rss = feedparser.parse(data)
+        if rss.bozo == 1:
+            rss = await self.find_rss_feed(feed, rss)
+        if rss.bozo:
+            return False
         solver = create_solver(feed, rss.feed, rss.entries)
 
         items = rss.entries
@@ -83,3 +88,28 @@ class RssReader(Extension):
                 print(e)
                 sentry_sdk.capture_exception(e)
         return updated
+
+    async def find_rss_feed(self, feed, rss):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(feed["url"]) as resp:
+                data = await resp.text()
+        soup = BeautifulSoup(data, "html.parser")
+        links = soup.find_all("link", type="application/rss+xml")
+        if links:
+            link = links[0]["href"]
+            if link.startswith("//"):
+                link = "https:" + link
+            feed["url"] = link
+            async with aiohttp.ClientSession() as session:
+                async with session.get(link) as resp:
+                    data = await resp.text()
+            return feedparser.parse(data)
+        if feed["url"].startswith("https://mangadex.org/title/"):
+            uuid = feed["url"].split("/")[4]
+            link = f"https://mdrss.tijlvdb.me/feed?q=manga:{uuid},tl:en"
+            feed["url"] = link
+            async with aiohttp.ClientSession() as session:
+                async with session.get(link) as resp:
+                    data = await resp.text()
+            return feedparser.parse(data)
+        return rss

@@ -28,7 +28,7 @@ def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserD
             return DefaultSolver(feed, channel)
         return solver_class(feed, channel)
 
-    return DefaultSolver(feed, channel)
+    return UnknownSolver(feed, channel)
 
 
 class DefaultSolver:
@@ -39,17 +39,20 @@ class DefaultSolver:
     async def solve(self, item: FeedParserDict) -> str:
         return self.format_message(item, item.links[0].href, None)
 
-    def format_message(self, item, page_url, img_url):
+    def format_message(self, item: FeedParserDict, page_url: str, img_url: str) -> str:
         post = "post"
         title = item.title
 
         if img_url and page_url:
+            img_url = img_url.replace(" ", "%20")
             post = f"[post](<{page_url}>)"
             title = f"[{item.title}]({img_url})"
         elif img_url:
             title = f"[{item.title}]({img_url})"
         elif page_url:
             post = f"[post]({page_url})"
+        else:
+            post = f"[post]({item.links[0].href})"
 
         msg = f"New {post} in {self.channel_title}: {title}"
         return msg
@@ -122,3 +125,19 @@ class ImgIdSolver(ComicRocketSolver):
         except UnicodeDecodeError as e:
             sentry_sdk.capture_exception(e)
             return fallback
+
+
+class UnknownSolver(DefaultSolver):
+    async def solve(self, item: FeedParserDict) -> str:
+        try:
+            content = await self.fetch_link(item)
+            soup = BeautifulSoup(content, "html.parser")
+            cc_comic = soup.find("img", id="cc-comic")
+            if cc_comic:
+                self.feed["solver"] = "ImgIdSolver"
+                self.feed["img_id"] = "cc-comic"
+                return await ImgIdSolver(self.feed, self.channel).solve(item)
+
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+        return self.format_message(item, item.links[0].href, None)
