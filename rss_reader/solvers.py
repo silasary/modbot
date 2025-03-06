@@ -132,12 +132,16 @@ class UnknownSolver(DefaultSolver):
         try:
             content = await self.fetch_link(item)
             soup = BeautifulSoup(content, "html.parser")
-            cc_comic = soup.find("img", id="cc-comic")
-            if cc_comic:
+            comic = soup.find("img", id="cc-comic")
+            if comic:
                 self.feed["solver"] = "ImgIdSolver"
                 self.feed["img_id"] = "cc-comic"
                 return await ImgIdSolver(self.feed, self.channel).solve(item)
-
+            comic = soup.find("img", id="comic-image")
+            if comic:
+                self.feed["solver"] = "ImgIdSolver"
+                self.feed["img_id"] = "comic-image"
+                return await ImgIdSolver(self.feed, self.channel).solve(item)
         except Exception as e:
             sentry_sdk.capture_exception(e)
         return self.format_message(item, item.links[0].href, None)
