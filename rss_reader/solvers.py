@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from feedparser import FeedParserDict
 import urllib.parse
 
+from interactions import Embed
 import sentry_sdk
 
 
@@ -10,7 +11,6 @@ def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserD
     if channel.get("generator") and channel["generator"].startswith("https://wordpress.org/"):
         feed["solver"] = "WordpressSolver"
     elif channel.link.startswith("https://www.comic-rocket.com/feeds/"):
-        feed["solver"] = "ComicRocketSolver"
         comic_name = entries[0].link.split("/")[-2]
         if comic_name == "freefall":
             feed["solver"] = "FreefallSolver"
@@ -25,7 +25,7 @@ def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserD
         solver_class = globals().get(feed["solver"], None)
         if not solver_class:
             feed["solver"] = "DefaultSolver"
-            return DefaultSolver(feed, channel)
+            return UnknownSolver(feed, channel)
         return solver_class(feed, channel)
 
     return UnknownSolver(feed, channel)
@@ -36,7 +36,7 @@ class DefaultSolver:
         self.feed = feed
         self.channel = channel
 
-    async def solve(self, item: FeedParserDict) -> str:
+    async def solve(self, item: FeedParserDict) -> str | Embed | tuple[str, Embed]:
         return self.format_message(item, item.links[0].href, None)
 
     def format_message(self, item: FeedParserDict, page_url: str, img_url: str) -> str:
@@ -57,15 +57,32 @@ class DefaultSolver:
         msg = f"New {post} in {self.channel_title}: {title}"
         return msg
 
+    def format_embed(self, item: FeedParserDict, page_url: str, img_url: str, alt_text: str) -> Embed:
+        embed = Embed(title=item.title)
+        embed.set_author(name=self.channel_title, url=page_url)
+        embed.set_image(url=img_url)
+        embed.set_footer(alt_text)
+        return embed
+
     @property
     def channel_title(self):
         return self.channel.title
 
     async def fetch_link(self, item: FeedParserDict) -> str:
+        """Fetches the link of the item and returns the content."""
         self.url = item.links[0].href
         async with aiohttp.ClientSession() as session:
             async with session.get(self.url) as resp:
                 data = await resp.text()
+
+            if self.url.startswith("https://www.comic-rocket.com/"):
+                soup = BeautifulSoup(data, "html.parser")
+                body = soup.find("div", id="serialpagebody")
+                iframe = body.find("iframe")
+                self.url = iframe["src"]
+                async with session.get(self.url) as resp:
+                    data = await resp.text()
+
         return data
 
 
@@ -81,27 +98,9 @@ class WordpressSolver(DefaultSolver):
         return self.format_message(item, item.links[0].href, None)
 
 
-class ComicRocketSolver(DefaultSolver):
+class FreefallSolver(DefaultSolver):
     async def solve(self, item: FeedParserDict) -> str:
-        content = await self.fetch_link(item)
-        if not self.url.startswith("https://www.comic-rocket.com/"):
-            # Not a comic rocket page
-            return self.format_message(item, self.url, None)
-
-        soup = BeautifulSoup(content, "html.parser")
-        body = soup.find("div", id="serialpagebody")
-        iframe = body.find("iframe")
-        self.url = iframe["src"]
-
-        return self.format_message(item, self.url, None)
-
-
-class FreefallSolver(ComicRocketSolver):
-    async def solve(self, item: FeedParserDict) -> str:
-        await super().solve(item)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.url) as resp:
-                data = await resp.text()
+        data = await self.fetch_link(item)
         soup = BeautifulSoup(data, "html.parser")
         img = soup.find("img")
 
@@ -110,17 +109,17 @@ class FreefallSolver(ComicRocketSolver):
         return self.format_message(item, self.url, url)
 
 
-class ImgIdSolver(ComicRocketSolver):
+class ImgIdSolver(DefaultSolver):
     async def solve(self, item: FeedParserDict) -> str:
         fallback = await super().solve(item)
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(self.url) as resp:
-                    content = await resp.text()
+            content = await self.fetch_link(item)
             soup = BeautifulSoup(content, "html.parser")
             img = soup.find("img", id=self.feed["img_id"])
             url = urllib.parse.urljoin(self.url, img["src"])
-
+            title = img.get("title")
+            if title:
+                return self.format_embed(item, self.url, url, title)
             return self.format_message(item, self.url, url)
         except UnicodeDecodeError as e:
             sentry_sdk.capture_exception(e)

@@ -1,6 +1,6 @@
 import aiohttp
 from bs4 import BeautifulSoup
-from interactions import Client, CronTrigger, Extension, OptionType, SlashContext, Task, listen, slash_command, slash_option
+from interactions import Client, CronTrigger, Embed, Extension, OptionType, SlashContext, Task, listen, slash_command, slash_option
 import feedparser
 
 import json
@@ -76,7 +76,12 @@ class RssReader(Extension):
                 if item.guid in seen:
                     continue
                 content = await solver.solve(item)
-                await user.send(content)
+                if isinstance(content, str):
+                    await user.send(content)
+                elif isinstance(content, Embed):
+                    await user.send(embed=content)
+                else:
+                    await user.send(content[0], embed=content[1])
                 seen.append(item.guid)
                 if len(seen) > len(items) * 2:
                     seen.pop(0)
