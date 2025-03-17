@@ -26,7 +26,7 @@ class Bot(interactions.Client):
         )
         super().load_extension("roles.colour")
         super().load_extension("rss_reader")
-        # super().load_extension('discordbot.updater')
+        super().load_extension("discordbot.updater")
         # super().load_extension('discordbot.botguild')
         super().load_extension("notices_channel")
         super().load_extension("honk")

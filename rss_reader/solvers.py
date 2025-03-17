@@ -37,7 +37,8 @@ class DefaultSolver:
         self.channel = channel
 
     async def solve(self, item: FeedParserDict) -> str | Embed | tuple[str, Embed]:
-        return self.format_message(item, item.links[0].href, None)
+        await self.fetch_link(item)
+        return self.format_message(item, self.url, None)
 
     def format_message(self, item: FeedParserDict, page_url: str, img_url: str) -> str:
         post = "post"
@@ -143,4 +144,4 @@ class UnknownSolver(DefaultSolver):
                 return await ImgIdSolver(self.feed, self.channel).solve(item)
         except Exception as e:
             sentry_sdk.capture_exception(e)
-        return self.format_message(item, item.links[0].href, None)
+        return await super().solve(item)
