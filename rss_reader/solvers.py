@@ -1,7 +1,8 @@
 import aiohttp
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from feedparser import FeedParserDict
 import urllib.parse
+from markdownify import markdownify
 
 from interactions import Embed
 import sentry_sdk
@@ -61,7 +62,7 @@ class DefaultSolver:
     def format_embed(self, item: FeedParserDict, page_url: str, img_url: str, alt_text: str) -> Embed:
         embed = Embed(title=item.title)
         embed.set_author(name=self.channel_title, url=page_url)
-        embed.set_image(url=img_url)
+        embed.set_image(url=img_url.replace(" ", "%20"))
         embed.set_footer(alt_text)
         return embed
 
@@ -111,7 +112,7 @@ class FreefallSolver(DefaultSolver):
 
 
 class ImgIdSolver(DefaultSolver):
-    async def solve(self, item: FeedParserDict) -> str:
+    async def solve(self, item: FeedParserDict) -> str | list[Embed]:
         fallback = await super().solve(item)
         try:
             content = await self.fetch_link(item)
@@ -119,12 +120,24 @@ class ImgIdSolver(DefaultSolver):
             img = soup.find("img", id=self.feed["img_id"])
             url = urllib.parse.urljoin(self.url, img["src"])
             title = img.get("title")
+            newsbody = soup.find("div", class_="cc-newsbody")
+            embeds = []
             if title:
-                return self.format_embed(item, self.url, url, title)
+                embeds.append(self.format_embed(item, self.url, url, title))
+            if newsbody:
+                embeds.append(await self.parse_newsbody(newsbody))
+            if embeds:
+                return embeds
             return self.format_message(item, self.url, url)
         except UnicodeDecodeError as e:
             sentry_sdk.capture_exception(e)
             return fallback
+
+    async def parse_newsbody(self, newsbody: Tag) -> Embed:
+        md = markdownify(str(newsbody))
+        if not md:
+            return None
+        return Embed(description=md)
 
 
 class UnknownSolver(DefaultSolver):

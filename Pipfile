@@ -15,6 +15,7 @@ cattrs = "*"
 "interactions.py" = {extras = ["speedup"], version = "*"}
 "jurigged" = "*"
 feedparser = "*"
+markdownify = "*"
 
 [dev-packages]
 autopep8 = "*"

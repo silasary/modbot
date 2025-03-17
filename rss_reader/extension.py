@@ -80,8 +80,15 @@ class RssReader(Extension):
                     await user.send(content)
                 elif isinstance(content, Embed):
                     await user.send(embed=content)
-                else:
-                    await user.send(content[0], embed=content[1])
+                elif isinstance(content, (list, tuple)):
+                    body = None
+                    embeds = []
+                    for c in content:
+                        if isinstance(c, str):
+                            body = c
+                        elif isinstance(c, Embed):
+                            embeds.append(c)
+                    await user.send(body, embeds=embeds)
                 seen.append(item.guid)
                 if len(seen) > len(items) * 2:
                     seen.pop(0)
