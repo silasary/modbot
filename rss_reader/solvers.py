@@ -134,6 +134,10 @@ class ImgIdSolver(DefaultSolver):
             return fallback
 
     async def parse_newsbody(self, newsbody: Tag) -> Embed:
+        links = newsbody.find_all("a")
+        for link in links:
+            if link["href"].startswith("/"):
+                link["href"] = urllib.parse.urljoin(self.url, link["href"])
         md = markdownify(str(newsbody))
         if not md:
             return None

@@ -62,6 +62,7 @@ def scrape() -> list[Listing]:
         expires = listing.find("div", class_="expires")
         loot = False
         duty_complete = False
+        duty_completion = False
         practice = False
         if "[Loot]" in description.text:
             loot = True
