@@ -73,7 +73,8 @@ class RssReader(Extension):
         count = 0
         for item in items:
             try:
-                if item.guid in seen:
+                guid = item.get("guid", item.get("id", item.get("link")))
+                if guid in seen:
                     continue
                 content = await solver.solve(item)
                 if isinstance(content, str):
@@ -89,7 +90,7 @@ class RssReader(Extension):
                         elif isinstance(c, Embed):
                             embeds.append(c)
                     await user.send(body, embeds=embeds)
-                seen.append(item.guid)
+                seen.append(guid)
                 if len(seen) > len(items) * 2:
                     seen.pop(0)
                 count += 1
