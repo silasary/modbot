@@ -141,6 +141,8 @@ class ImgIdSolver(DefaultSolver):
         md = markdownify(str(newsbody))
         if not md:
             return None
+        if len(md) > 4096:
+            return Embed(description=md[:4090] + "...")
         return Embed(description=md)
 
 
