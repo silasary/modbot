@@ -83,7 +83,7 @@ class DefaultSolver:
                 iframe = body.find("iframe")
                 self.url = iframe["src"]
                 async with session.get(self.url) as resp:
-                    data = await resp.text()
+                    data = (await resp.read()).decode("utf-8", errors="ignore")
 
         return data
 
