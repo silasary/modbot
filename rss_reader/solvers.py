@@ -63,7 +63,8 @@ class DefaultSolver:
         embed = Embed(title=item.title)
         embed.set_author(name=self.channel_title, url=page_url)
         embed.set_image(url=img_url.replace(" ", "%20"))
-        embed.set_footer(alt_text)
+        if alt_text:
+            embed.set_footer(alt_text)
         return embed
 
     @property
@@ -121,9 +122,14 @@ class ImgIdSolver(DefaultSolver):
             url = urllib.parse.urljoin(self.url, img["src"])
             title = img.get("title")
             newsbody = soup.find("div", class_="cc-newsbody")
+            if not newsbody:
+                newsbody = soup.find("div", id="newspost")
             embeds = []
             if title:
                 embeds.append(self.format_embed(item, self.url, url, title))
+            elif newsbody:
+                embeds.append(self.format_embed(item, self.url, url, None))
+
             if newsbody:
                 embeds.append(await self.parse_newsbody(newsbody))
             if embeds:

@@ -40,14 +40,15 @@ class RssReader(Extension):
 
     @Task.create(CronTrigger("0 * * * *"))
     async def fetch_feeds(self):
-        updated = False
+        count = 0
         for feed in self.feeds:
-            updated = await self.check_feed(feed) or updated
-        if updated:
+            count = count + await self.check_feed(feed)
+            if count >= 10:
+                break
+        if count > 0:
             self.save()
 
-    async def check_feed(self, feed: dict) -> bool:
-        updated = False
+    async def check_feed(self, feed: dict) -> int:
         url = feed["url"]
         user = await self.bot.fetch_user(feed["user"])
         seen = feed["seen"]
@@ -94,13 +95,12 @@ class RssReader(Extension):
                 if len(seen) > len(items) * 2:
                     seen.pop(0)
                 count += 1
-                updated = True
-                if count > 4:
+                if count >= 10:
                     break
             except Exception as e:
                 print(e)
                 sentry_sdk.capture_exception(e)
-        return updated
+        return count
 
     async def find_rss_feed(self, feed, rss):
         async with aiohttp.ClientSession() as session:
