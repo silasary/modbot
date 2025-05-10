@@ -1,7 +1,9 @@
 import aiohttp
 from bs4 import BeautifulSoup
 from interactions import Client, CronTrigger, Embed, Extension, OptionType, SlashContext, Task, listen, slash_command, slash_option
+from interactions.models.discord.components import Button, TextDisplayComponent, SectionComponent
 import feedparser
+import shortuuid
 
 import json
 import os
@@ -23,7 +25,11 @@ class RssReader(Extension):
         self.fetch_feeds.start()
         await self.fetch_feeds()
 
-    @slash_command("add_feed")
+    @slash_command("rss")
+    async def rss(self, ctx: SlashContext) -> None:
+        """RSS feed commands"""
+
+    @rss.subcommand("add_feed")
     @slash_option("url", "The URL of the RSS feed", opt_type=OptionType.STRING, required=True)
     async def add_feed(self, ctx: SlashContext, url: str):
         """Subscribe to an RSS feed"""
@@ -32,6 +38,26 @@ class RssReader(Extension):
         self.save()
         await ctx.send("Feed added!", ephemeral=True)
         await self.check_feed(new_feed)
+
+    @rss.subcommand("dashboard")
+    async def dashboard(self, ctx: SlashContext):
+        """Show the RSS feed dashboard"""
+        components = []
+        for feed in self.feeds:
+            if not feed.get("shortuuid"):
+                feed["shortuuid"] = shortuuid.uuid()
+            text = f"""
+                    ## {feed.get('title') or feed.get('url')}
+                    """
+            if feed.get("latest"):
+                text += f"""
+                        * Latest post: [{feed['latest']['title']}]({feed['latest'].get('url', feed['latest'].get('guid'))})
+                        * Published: {feed['latest']['published']}
+                        """
+
+            components.append(SectionComponent(components=[TextDisplayComponent(text)], accessory=Button(label="Unsubscribe", style=1, custom_id=f"ru:{feed['shortuuid']}")))
+        for msg in chunk(components, 40 // 3):
+            await ctx.send(components=msg, ephemeral=True)
 
     def save(self):
         dump = json.dumps(self.feeds, indent=2)
@@ -63,6 +89,9 @@ class RssReader(Extension):
             rss = await self.find_rss_feed(feed, rss)
         if rss.bozo:
             return False
+        feed["title"] = rss.feed.title
+        if "image" in rss.feed:
+            feed["image"] = rss.feed.image.href
         solver = create_solver(feed, rss.feed, rss.entries)
 
         items = rss.entries
@@ -77,6 +106,8 @@ class RssReader(Extension):
                 guid = item.get("guid", item.get("id", item.get("link")))
                 if guid in seen:
                     continue
+                published = item.get("published", rss.feed.get("updated"))
+                feed["latest"] = {"guid": guid, "title": item.title, "published": published, "url": item.links[0].href}
                 content = await solver.solve(item)
                 if isinstance(content, str):
                     await user.send(content)
@@ -126,3 +157,9 @@ class RssReader(Extension):
                     data = await resp.text()
             return feedparser.parse(data)
         return rss
+
+
+def chunk(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]

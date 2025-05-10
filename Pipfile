@@ -12,10 +12,11 @@ requests = "*"
 sentry-sdk = "*"
 beautifulsoup4 = "*"
 cattrs = "*"
-"interactions.py" = {extras = ["speedup"], version = "*"}
+"interactions.py" = {extras = ["speedup"], version = ">=5.15.0rc1"}
 "jurigged" = "*"
 feedparser = "*"
 markdownify = "*"
+shortuuid = "*"
 
 [dev-packages]
 autopep8 = "*"
