@@ -13,6 +13,15 @@ def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserD
         feed["solver"] = "WordpressSolver"
     elif channel.link.startswith("https://www.comic-rocket.com/feeds/"):
         comic_name = entries[0].link.split("/")[-2]
+        # if len(entries) == 1 and not entries[0].link.endswith('/1') and feed.get("upgradable", True):
+        #     print(f'{comic_name} might be up to date')
+        #     if comic_name == 'el-goonish-shive':
+        #         feed['url'] = 'https://www.egscomics.com/comic/rss'
+        #     elif comic_name == 'egs-np':
+        #         feed['url'] = 'https://www.egscomics.com/egsnp/rss'
+        #     else:
+        #         feed['upgradable'] = True
+
         if comic_name == "freefall":
             feed["solver"] = "FreefallSolver"
         elif comic_name == "questionable-content":

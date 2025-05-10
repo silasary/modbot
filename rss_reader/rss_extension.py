@@ -123,7 +123,9 @@ class RssReader(Extension):
                             embeds.append(c)
                     await user.send(body, embeds=embeds)
                 seen.append(guid)
-                if len(seen) > len(items) * 2:
+                if solver.url and solver.url not in seen:
+                    seen.append(solver.url)
+                if len(seen) > len(items) * 4:
                     seen.pop(0)
                 count += 1
                 if count >= 10:
