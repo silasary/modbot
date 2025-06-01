@@ -130,6 +130,11 @@ class ImgIdSolver(DefaultSolver):
             img = soup.find("img", id=self.feed["img_id"])
             url = urllib.parse.urljoin(self.url, img["src"])
             title = img.get("title")
+            storyline = soup.find("select", {"name": "comic-storyline"})
+            if storyline:
+                storyline = storyline.find("option", selected=True)
+                if storyline:
+                    title = f"{title} - {storyline.text.strip()}"
             newsbody = soup.find("div", class_="cc-newsbody")
             if not newsbody:
                 newsbody = soup.find("div", id="newspost")

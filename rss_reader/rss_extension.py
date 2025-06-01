@@ -44,6 +44,8 @@ class RssReader(Extension):
         """Show the RSS feed dashboard"""
         components = []
         for feed in self.feeds:
+            if feed.get("user") != ctx.author_id:
+                continue
             if not feed.get("shortuuid"):
                 feed["shortuuid"] = shortuuid.uuid()
             text = f"""
