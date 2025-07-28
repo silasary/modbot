@@ -11,6 +11,13 @@ import os
 import sentry_sdk
 
 from rss_reader.solvers import create_solver
+from shared import configuration
+
+configuration.DEFAULTS.update(
+    {
+        "rss_max_items": 10,
+    }
+)
 
 
 class RssReader(Extension):
@@ -71,7 +78,7 @@ class RssReader(Extension):
         count = 0
         for feed in self.feeds:
             count = count + await self.check_feed(feed)
-            if count >= 10:
+            if count >= configuration.get("rss_max_items"):
                 break
         if count > 0:
             self.save()
@@ -97,6 +104,13 @@ class RssReader(Extension):
         solver = create_solver(feed, rss.feed, rss.entries)
 
         items = rss.entries
+        if not items:
+            updated = rss.feed.updated
+            if feed.get("latest") and feed["latest"].get("published") == updated:
+                return 0
+            feed.setdefault("latest", {})["published"] = updated
+            # solver.solve()
+            return 0
         if hasattr(items[0], "published_parsed"):
             items.sort(key=lambda x: x.published_parsed, reverse=False)
         else:
