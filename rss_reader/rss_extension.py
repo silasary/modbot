@@ -1,3 +1,4 @@
+from collections import Counter
 import aiohttp
 from bs4 import BeautifulSoup
 from interactions import Client, CronTrigger, Embed, Extension, OptionType, SlashContext, Task, listen, slash_command, slash_option
@@ -75,11 +76,14 @@ class RssReader(Extension):
 
     @Task.create(CronTrigger("0 * * * *"))
     async def fetch_feeds(self):
+        counter = Counter()
         count = 0
         for feed in self.feeds:
+            owner = feed.get("user")
+            if counter[owner] >= configuration.get("rss_max_items"):
+                continue
             count = count + await self.check_feed(feed)
-            if count >= configuration.get("rss_max_items"):
-                break
+            counter[owner] += count
         if count > 0:
             self.save()
 
