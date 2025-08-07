@@ -10,3 +10,5 @@ config.json
 /datapackages.json
 /feeds.json
 /duty_names.json
+/fn_stats.json
+/festival_songs.json
