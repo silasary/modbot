@@ -82,7 +82,11 @@ class RssReader(Extension):
             owner = feed.get("user")
             if counter[owner] >= configuration.get("rss_max_items"):
                 continue
-            count = count + await self.check_feed(feed)
+            try:
+                count = count + await self.check_feed(feed)
+            except Exception as e:
+                print(e)
+                sentry_sdk.capture_exception(e)
             counter[owner] += count
         if count > 0:
             self.save()
@@ -95,7 +99,7 @@ class RssReader(Extension):
             return False
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
-                data = await resp.text()
+                data = await resp.text(errors="ignore")
 
         rss = feedparser.parse(data)
         if rss.bozo == 1:
