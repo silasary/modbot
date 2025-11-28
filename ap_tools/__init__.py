@@ -42,8 +42,8 @@ async def run_output(args: list[str], cwd: str) -> str:
             return str(e.returncode)
     else:
         process = await asyncio.subprocess.create_subprocess_exec(*args, cwd=cwd)
-        code = await process.wait()
-        return code
+        output = await process.communicate()
+        return output[0].decode("utf-8")
 
 
 class APTools(Extension):
