@@ -46,7 +46,7 @@ class DefaultSolver:
         self.feed = feed
         self.channel = channel
 
-    async def solve(self, item: FeedParserDict) -> str | Embed | tuple[str, Embed]:
+    async def solve(self, item: FeedParserDict) -> str | Embed | tuple[str, Embed] | list[Embed]:
         await self.fetch_link(item)
         return self.format_message(item, self.url, None)
 
@@ -166,8 +166,26 @@ class ImgIdSolver(DefaultSolver):
         return Embed(description=md)
 
 
+class DivIdSolver(DefaultSolver):
+    async def solve(self, item: FeedParserDict) -> str | Embed | tuple[str, Embed] | list[Embed]:
+        fallback = await super().solve(item)
+        try:
+            content = await self.fetch_link(item)
+            soup = BeautifulSoup(content, "html.parser")
+            div = soup.find("div", id=self.feed["div_id"])
+            if div:
+                img = div.find("img")
+                if img:
+                    image = img["src"]
+                    title = img.get("title")
+                    return self.format_embed(item, item.links[0].href, image, title)
+            return self.format_message(item, item.links[0].href, None)
+        except UnicodeDecodeError as e:
+            sentry_sdk.capture_exception(e)
+            return fallback
+
 class UnknownSolver(DefaultSolver):
-    async def solve(self, item: FeedParserDict) -> str:
+    async def solve(self, item: FeedParserDict) -> str | Embed | tuple[str, Embed] | list[Embed]:
         try:
             content = await self.fetch_link(item)
             soup = BeautifulSoup(content, "html.parser")
@@ -181,6 +199,11 @@ class UnknownSolver(DefaultSolver):
                 self.feed["solver"] = "ImgIdSolver"
                 self.feed["img_id"] = "comic-image"
                 return await ImgIdSolver(self.feed, self.channel).solve(item)
+            div = soup.find("div", id="comic")
+            if div:
+                self.feed["solver"] = "DivIdSolver"
+                self.feed["div_id"] = "comic"
+                return await DivIdSolver(self.feed, self.channel).solve(item)
         except Exception as e:
             sentry_sdk.capture_exception(e)
         return await super().solve(item)
