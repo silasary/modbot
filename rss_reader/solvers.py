@@ -7,6 +7,8 @@ from markdownify import markdownify
 from interactions import Embed
 import sentry_sdk
 
+class PatreonException(Exception):
+    """Post is locked behind a Patreon paywall."""
 
 def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserDict]) -> "DefaultSolver":
     if channel.get("generator") and channel["generator"].startswith("https://wordpress.org/"):
@@ -105,6 +107,8 @@ class WordpressSolver(DefaultSolver):
         post = soup.find("div", class_="entry-content")
         image = post.find("img")
         if image:
+            if image.get('alt') == 'Unlock with Patreon':
+                raise PatreonException()
             image = image["src"]
             return self.format_message(item, item.links[0].href, image)
         return self.format_message(item, item.links[0].href, None)

@@ -11,7 +11,7 @@ import os
 
 import sentry_sdk
 
-from rss_reader.solvers import create_solver
+from rss_reader.solvers import PatreonException, create_solver
 from shared import configuration
 
 configuration.DEFAULTS.update(
@@ -132,7 +132,15 @@ class RssReader(Extension):
                     continue
                 published = item.get("published", rss.feed.get("updated"))
                 feed["latest"] = {"guid": guid, "title": item.title, "published": published, "url": item.links[0].href}
-                content = await solver.solve(item)
+                try:
+                    content = await solver.solve(item)
+                except PatreonException:
+                    pguid = f"PATREON-{guid}"
+                    if pguid in seen:
+                        continue
+                    await user.send(f"New [Patreon-exclusive post](<{item.links[0].href}>) in {rss.feed.title}, but it's locked behind a Patreon paywall.")
+                    seen.append(pguid)
+                    continue
                 if isinstance(content, str):
                     await user.send(content)
                 elif isinstance(content, Embed):
