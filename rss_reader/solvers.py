@@ -26,9 +26,6 @@ def create_solver(feed: dict, channel: FeedParserDict, entries: list[FeedParserD
 
         if comic_name == "freefall":
             feed["solver"] = "FreefallSolver"
-        elif comic_name == "questionable-content":
-            feed["solver"] = "ImgIdSolver"
-            feed["img_id"] = "strip"
         elif comic_name in ["el-goonish-shive", "egs-np"]:
             feed["solver"] = "ImgIdSolver"
             feed["img_id"] = "cc-comic"
@@ -132,6 +129,9 @@ class ImgIdSolver(DefaultSolver):
             content = await self.fetch_link(item)
             soup = BeautifulSoup(content, "html.parser")
             img = soup.find("img", id=self.feed["img_id"])
+            if img is None:
+                self.feed["solver"] = "UnknownSolver"
+                return fallback
             url = urllib.parse.urljoin(self.url, img["src"])
             title = img.get("title")
             storyline = soup.find("select", {"name": "comic-storyline"})
@@ -202,6 +202,11 @@ class UnknownSolver(DefaultSolver):
             if comic:
                 self.feed["solver"] = "ImgIdSolver"
                 self.feed["img_id"] = "comic-image"
+                return await ImgIdSolver(self.feed, self.channel).solve(item)
+            comic = soup.find("img", id="strip")
+            if comic:
+                self.feed["solver"] = "ImgIdSolver"
+                self.feed["img_id"] = "strip"
                 return await ImgIdSolver(self.feed, self.channel).solve(item)
             div = soup.find("div", id="comic")
             if div:
